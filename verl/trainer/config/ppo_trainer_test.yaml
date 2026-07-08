@@ -168,7 +168,7 @@ reward_model:
   structure_format_score: 0
   final_format_score: 0
 
-retriever:
+tool:
   url: "http://127.0.0.1:8000/retrieve"
   topk: 3
 

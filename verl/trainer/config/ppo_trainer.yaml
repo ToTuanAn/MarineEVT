@@ -172,7 +172,7 @@ reward_model:
   tool_name_score: 0
   tool_output_score: 0
 
-retriever:
+tool:
   url: "http://127.0.0.1:8000/retrieve"
   topk: 3
 

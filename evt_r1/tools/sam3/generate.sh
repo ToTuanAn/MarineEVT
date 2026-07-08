@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=1 python generate_multiple_seg.py

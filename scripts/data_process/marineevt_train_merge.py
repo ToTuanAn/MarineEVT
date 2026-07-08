@@ -237,6 +237,9 @@ if __name__ == '__main__':
                         
                         groundtruth = process_groudntruth(turn, frames)
 
+                        if len(frames_path) == 0:
+                            continue
+
                         data = {
                             "data_source": data_source,
                             "images": frames_path,
@@ -246,6 +249,7 @@ if __name__ == '__main__':
                                 "style": "rule",
                                 "ground_truth": groundtruth
                             },
+                            "question_format": item["question_format"],
                             "extra_info": {
                                 'split': "train",
                                 "dimension": item["dimension"],

@@ -17,7 +17,7 @@ actor_ppo_mini_batch_size=$[$n_gpus_per_node * 8]
 actor_ppo_micro_batch_size=$[$n_gpus_per_node * 4]
 log_prob_micro_batch_size=$[$n_gpus_per_node * 4]
 
-export BASE_MODEL='Qwen/Qwen3-VL-4B-Instruct'
+export BASE_MODEL='Qwen/Qwen3-VL-2B-Instruct'
 export EXPERIMENT_NAME=multihopqa-grpo-qwen2.5-3b
 
 ulimit -n 65535
@@ -87,6 +87,6 @@ ray job submit --address=$RAY_DASHBOARD_ADDRESS \
     reward_model.tool_output_score=0.5 \
     do_search=true \
     max_turns=3 \
-    retriever.url="http://127.0.0.1:8000/retrieve" \
-    retriever.topk=3 \
+    tool.url="http://127.0.0.1:8111/sam" \
+    tool.topk=3 \
     2>&1 | tee verl_log/$EXPERIMENT_NAME.log

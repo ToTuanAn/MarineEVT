@@ -23,8 +23,6 @@ class GenerationConfig:
     max_obs_length: int
     num_gpus: int
     no_think_rl: bool=False
-    search_url: str = None
-    topk: int = 3
 
 class LLMGenerationManager:
     def __init__(
@@ -280,8 +278,6 @@ class LLMGenerationManager:
     def run_llm_loop(self, gen_batch, initial_input_ids: torch.Tensor) -> Tuple[Dict, Dict]:
         """Run main LLM generation loop."""
         rollings = gen_batch
-        final_output = copy.deepcopy(gen_batch)
-
         rollings_processed = self.preprocess_gen_batch(rollings)
 
         rollings_processed.batch = self.tensor_fn.cut_to_effective_len(
@@ -295,15 +291,18 @@ class LLMGenerationManager:
                     },      
                     non_tensors={
                         'images': rollings.non_tensor_batch["images"],
-                        'reward_model': rollings.non_tensor_batch["reward_model"]
+                        'reward_model': rollings.non_tensor_batch["reward_model"],
+                        'question_format': rollings.non_tensor_batch["question_format"],
                     })            
+        
+        final_output = copy.deepcopy(rollings_active)
         
         # print(f"Rolling active: {rollings_active}")
         gen_output = self._generate_with_gpu_padding(rollings_active)
         meta_info = gen_output.meta_info            
         responses_ids, responses_str, thinks_str = self._postprocess_responses(gen_output.batch['responses'])
 
-        final_output.non_tensor_batch['responses_ids'] = responses_ids 
+        final_output.batch['responses'] = gen_output.batch['responses'] 
         final_output.non_tensor_batch['responses_str'] = responses_str 
         final_output.non_tensor_batch['thinks_str'] = thinks_str 
 

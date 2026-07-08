@@ -468,9 +468,7 @@ class RayPPOTrainer(object):
             max_response_length=self.config.data.max_response_length,
             max_obs_length=self.config.data.max_obs_length,
             num_gpus=self.config.trainer.n_gpus_per_node * self.config.trainer.nnodes,
-            no_think_rl=self.config.algorithm.no_think_rl,
-            search_url = self.config.retriever.url,
-            topk = self.config.retriever.topk,
+            no_think_rl=self.config.algorithm.no_think_rl
         )
 
         # Agent config preparation
@@ -701,9 +699,7 @@ class RayPPOTrainer(object):
             max_response_length=self.config.data.max_response_length,
             max_obs_length=self.config.data.max_obs_length,
             num_gpus=self.config.trainer.n_gpus_per_node * self.config.trainer.nnodes,
-            no_think_rl=self.config.algorithm.no_think_rl,
-            search_url = self.config.retriever.url,
-            topk = self.config.retriever.topk,
+            no_think_rl=self.config.algorithm.no_think_rl
         )
 
         generation_manager = LLMGenerationManager(
@@ -728,7 +724,7 @@ class RayPPOTrainer(object):
 
                 # pop those keys for generation
                 gen_batch = batch.pop(batch_keys=['input_ids', 'attention_mask', 'position_ids'],
-                                    non_tensor_batch_keys=['uid', 'data_source', 'reward_model', 'images'])
+                                    non_tensor_batch_keys=['uid', 'data_source', 'reward_model', 'images', 'question_format'])
 
                 ####################
                 # original code here
@@ -756,7 +752,7 @@ class RayPPOTrainer(object):
                     batch.non_tensor_batch['uid'] = batch.non_tensor_batch['index'].copy()
                                         
                     # repeat to align with repeated responses in rollout
-                    batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
+                    # batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
                     batch = batch.union(final_gen_batch_output)
 
                     ####################

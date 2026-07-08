@@ -21,21 +21,217 @@ from verl.utils.reward_score import qa_em, qa_em_format, qa_f1_format
 from verl.trainer.ppo.ray_trainer import RayPPOTrainer
 import re
 import numpy as np
+import json
+import requests
 
-def _select_rm_score_fn(data_source):
-    if data_source in ['nq', 'triviaqa', 'popqa', 'web_questions', 'hotpotqa', '2wikimultihopqa', 'musique', 'bamboogle', 'strategyqa']:
-        return qa_em_format.compute_score_em
+def calculate_tool_correct(response, groundtruth):
+    for tool in response:
+        if tool not in groundtruth:
+            return 0
+    return 1
+
+def calculate_tool_step_correct(response, groundtruth):
+    idx = 0
+    while idx < len(response) and idx < len(groundtruth):
+        if response[idx] != groundtruth[idx]:
+            return 0
+        idx += 1
+    return 1
+
+def calculate_correct_temporal_IoU(response, groundtruth):
+    s1, e1 = int(response[0]), int(response[1])
+    s2, e2 = int(groundtruth[0]), int(groundtruth[1])
+    if s1 >= e1 or s2 >= e2:
+        return 0
+
+    inter = max(0, min(e1, e2) - max(s1, s2))
+    union = (e1 - s1) + (e2 - s2) - inter
+
+    if inter / union >= 0.5:
+        return 1
+    return 0
+
+def calculate_correct_spatial_IoU(response, groundtruth):
+    def parse_box(raw_box):
+        """Safely extract & normalize [x1, y1, x2, y2] from nested list/strings."""
+        if not raw_box or len(raw_box) == 0:
+            return None
+        try:
+            coords = [float(c) for c in raw_box[0]]
+            x1, y1, x2, y2 = coords
+            # Normalize to (min_x, min_y, max_x, max_y)
+            return (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
+        except (ValueError, IndexError):
+            return None
+    
+    def compute_iou(box1, box2):
+        """Calculate 2D Intersection over Union for (x1, y1, x2, y2) tuples."""
+        inter_x1 = max(box1[0], box2[0])
+        inter_y1 = max(box1[1], box2[1])
+        inter_x2 = min(box1[2], box2[2])
+        inter_y2 = min(box1[3], box2[3])
+        
+        inter_w = max(0.0, inter_x2 - inter_x1)
+        inter_h = max(0.0, inter_y2 - inter_y1)
+        inter_area = inter_w * inter_h
+        
+        area1 = (box1[2] - box1[0]) * (box1[3] - box1[1])
+        area2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
+        union_area = area1 + area2 - inter_area
+        
+        return inter_area / union_area if union_area > 0 else 0.0
+
+    matches = []
+    boxes1 = [parse_box(b) for b in response if b != []]
+    boxes2 = [parse_box(b) for b in groundtruth if b != []]
+    
+    for i, b1 in enumerate(boxes1):
+        if b1 is None: continue
+        for j, b2 in enumerate(boxes2):
+            if b2 is None: continue
+            iou = compute_iou(b1, b2)
+            if iou > 0.5:
+                matches.append({"idx_1": i, "idx_2": j, "iou": round(iou, 4)})
+    
+    if len(matches) >= len(boxes1):
+        return 1
+
+    return 0
+
+
+def parse_tool_blocks(raw_string: str, ordered: bool = True) -> dict:
+    # decoded = html.unescape(raw_string)
+
+    # Single regex to capture both tag types in order of appearance
+    pattern = r'<tool_call>(.*?)</tool_call>'
+    matches = re.finditer(pattern, str(raw_string), re.DOTALL)
+
+    call_str = matches.group(1)
+    call_json = json.loads(call_str)
+
+    return call_json["function"]["name"], call_json["function"]["arguments"]
+
+def compute_score_fn(think_str,
+                     solution_str, 
+                     ground_truth, 
+                     structure_format_score,
+                     final_answer_score, 
+                     tool_name_score,
+                     tool_output_score,
+                     question_format,
+                     image_paths,
+                     sam3_url):
+    
+    def is_valid_sequence(think_str, solution_str):
+        has_reason = "<reason>" in think_str and "</reason>" in think_str
+
+        has_tool_call = "<tool_call>" in solution_str and "</tool_call>" in solution_str
+        has_answer = "<answer>" in solution_str and "</answer>" in solution_str
+    
+        if has_reason and has_tool_call:
+            return True, "tool"
+        
+        if has_reason and has_answer:
+            return True, "answer"
+            
+        return False, None
+
+    def extract_solution(solution_str):
+        """Extract the equation from the solution string."""
+
+        answer_pattern = r'<answer>(.*?)</answer>'
+        match = re.finditer(answer_pattern, solution_str, re.DOTALL)
+        matches = list(match)
+        
+        # If there are 0 or exactly 1 matches, return None
+        if len(matches) == 0:
+            return None
+        
+        # If there are 2 or more matches, return the last one
+        return matches[-1].group(1).strip()
+    
+    def is_correct_answer(response, ground_truth_response, question_format):
+        return 1
+
+    is_valid_format, response_typing = is_valid_sequence(think_str, solution_str)
+    ground_truth_typing, ground_truth_tool_name, ground_truth_response = ground_truth["type"], ground_truth["tool_name"], ground_truth["output_target"]
+    
+    response_tool_name, response = None, None
+
+    if response_typing == "tool":
+        print("Solution str: ", solution_str)
+        response_tool_name, response_params = parse_tool_blocks(solution_str)
+        if response_tool_name != ground_truth_tool_name:
+            return 0
+        else:
+            if response_tool_name == "temporal_grounding":
+                if calculate_correct_temporal_IoU(response=[(lambda m, s: int(m) * 60 + int(s))(*response_params["start_time"].split(':')),
+                                                            (lambda m, s: int(m) * 60 + int(s))(*response_params["end_time"].split(':'))],
+                                                  groundtruth=[ground_truth_response["start_time"], ground_truth_response["end_time"]]):
+                    return tool_output_score + tool_name_score
+                else:
+                    return tool_name_score
+            elif response_tool_name == "spatial_grounding":
+                result = None
+
+                try:
+                    # 3. Make the POST request
+                    response = requests.post(sam3_url, json={
+                        "prompt": response_params["prompt"],
+                        "ground_type": response_params.get("ground_type", None),
+                        "image_paths": image_paths
+                    })
+                    
+                    # 4. Check for HTTP errors
+                    response.raise_for_status()
+                    
+                    # 5. Parse and print the response
+                    result = response.json()
+                    print("Success!")
+                    print(json.dumps(result, indent=4))
+
+                except requests.exceptions.HTTPError as http_err:
+                    print(http_err)
+                
+                if result is None:
+                    return tool_name_score
+            
+                if calculate_correct_spatial_IoU(response=result["result"]["boxes"],
+                                                 groundtruth=response_params["boxes"]):
+                    return tool_output_score + tool_name_score
+                else:
+                    return tool_name_score
+            else:
+                return 0
     else:
-        return qa_f1_format.compute_score_f1
+        response = extract_solution(solution_str=solution_str)
+        is_correct = is_correct_answer(response, ground_truth_response, question_format)
+
+    if response_typing != ground_truth_typing:
+        return 0
+    else:
+        if ground_truth_typing == "tool":
+            return 1
+        elif ground_truth_typing == "answer":
+            if is_valid_format:
+                if is_correct:
+                    return structure_format_score + final_answer_score
+                else:
+                    return structure_format_score
+            else:
+                return 0
+        else:
+            return 0
 
 
 class RewardManager():
     """The reward manager.
     """
 
-    def __init__(self, tokenizer, num_examine, structure_format_score=0., final_answer_score=0., tool_name_score=0., tool_output_score=0.) -> None:
+    def __init__(self, tokenizer, num_examine, sam3_url, structure_format_score=0., final_answer_score=0., tool_name_score=0., tool_output_score=0.) -> None:
         self.tokenizer = tokenizer
         self.num_examine = num_examine  # the number of batches of decoded responses to print to the console
+        self.sam3_url = sam3_url
         self.final_answer_score = final_answer_score
         self.structure_format_score = structure_format_score
         self.tool_name_score = tool_name_score
@@ -46,58 +242,36 @@ class RewardManager():
 
         # If there is rm score, we directly return rm score. Otherwise, we compute via rm_score_fn
         print("Calculate reward")
-        
-        if 'rm_scores' in data.batch.keys():
-            return data.batch['rm_scores']
-
         reward_tensor = torch.zeros_like(data.batch['responses'], dtype=torch.float32)
 
-        # # all_scores = []
+        for i in range(len(data)):
+            data_item = data[i]
+            input_ids = data_item.batch['input_ids']
 
-        # already_print_data_sources = {}
+            prompt_length = input_ids.shape[-1]
+            valid_response_length = data_item.batch['attention_mask'][prompt_length:].sum()
 
-        # for i in range(len(data)):
-        #     data_item = data[i]  # DataProtoItem
+            response_str = data_item.non_tensor_batch["responses_str"]
+            think_str = data_item.non_tensor_batch["thinks_str"]
 
-        #     prompt_ids = data_item.batch['prompts']
+            ground_truth = data_item.non_tensor_batch['reward_model']['ground_truth']
+            question_format = data_item.non_tensor_batch['question_format']
+            image_paths = data_item.non_tensor_batch['images']
 
-        #     prompt_length = prompt_ids.shape[-1]
+            score = compute_score_fn(think_str=think_str,
+                                     solution_str=response_str, 
+                                     ground_truth=ground_truth, 
+                                     structure_format_score=self.structure_format_score, 
+                                     final_answer_score=self.final_answer_score, 
+                                     tool_name_score=self.tool_name_score,
+                                     tool_output_score=self.tool_output_score,
+                                     question_format=question_format,
+                                     image_paths=image_paths,
+                                     sam3_url=self.sam3_url)
 
-        #     valid_prompt_length = data_item.batch['attention_mask'][:prompt_length].sum()
-        #     valid_prompt_ids = prompt_ids[-valid_prompt_length:]
-
-        #     response_ids = data_item.batch['responses']
-        #     valid_response_length = data_item.batch['attention_mask'][prompt_length:].sum()
-        #     valid_response_ids = response_ids[:valid_response_length]
-
-        #     # decode
-        #     sequences = torch.cat((valid_prompt_ids, valid_response_ids))
-        #     sequences_str = self.tokenizer.decode(sequences)
-
-        #     ground_truth = data_item.non_tensor_batch['reward_model']['ground_truth']
-
-        #     # select rm_score
-        #     data_source = data_item.non_tensor_batch['data_source']
-        #     compute_score_fn = _select_rm_score_fn(data_source)
-
-        #     score = compute_score_fn(solution_str=sequences_str, ground_truth=ground_truth, 
-        #                              structure_format_score=self.structure_format_score, 
-        #                              final_format_score=self.final_format_score, 
-        #                              retrieval_score=self.retrieval_score,
-        #                              format_score=self.format_score,
-        #                              data_source=data_source)
-
-        #     reward_tensor[i, valid_response_length - 1] = score
-        #     # all_scores.append(score)
-
-        #     if data_source not in already_print_data_sources:
-        #         already_print_data_sources[data_source] = 0
-
-        #     if already_print_data_sources[data_source] < self.num_examine:
-        #         already_print_data_sources[data_source] += 1
-        #         print(sequences_str)
-
-        # return reward_tensor
+            reward_tensor[i, valid_response_length - 1] = score
+        
+        return reward_tensor
 
 
 import ray
@@ -124,7 +298,6 @@ def main_task(config):
     from omegaconf import OmegaConf
     pprint(OmegaConf.to_container(config, resolve=True))  # resolve=True will eval symbol values
     OmegaConf.resolve(config)
-
     # env_class = ENV_CLASS_MAPPING[config.env.name]
 
     # download the checkpoint from hdfs
@@ -185,13 +358,14 @@ def main_task(config):
         mapping[Role.RewardModel] = global_pool_id
 
     reward_fn = RewardManager(tokenizer=tokenizer, num_examine=0, 
+                              sam3_url=config.tool.url,
                               structure_format_score=config.reward_model.structure_format_score, 
                               final_answer_score=config.reward_model.final_answer_score,
                               tool_name_score=config.reward_model.tool_name_score,
                               tool_output_score=config.reward_model.tool_output_score)
 
     # Note that we always use function-based RM for validation
-    val_reward_fn = RewardManager(tokenizer=tokenizer, num_examine=1)
+    val_reward_fn = RewardManager(tokenizer=tokenizer, num_examine=1, sam3_url=config.tool.url)
 
     resource_pool_manager = ResourcePoolManager(resource_pool_spec=resource_pool_spec, mapping=mapping)
     trainer = RayPPOTrainer(config=config,
