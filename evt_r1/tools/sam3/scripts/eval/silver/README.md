@@ -193,36 +193,36 @@ The processed frames needed for evaluation can be downloaded from [Roboflow](htt
 # Usage
 ## Visualization
 
-- Visualize GT annotations: [saco_gold_silver_vis_example.ipynb](https://github.com/facebookresearch/evt_r1.tools.sam3.sam3/blob/main/examples/saco_gold_silver_vis_example.ipynb)
+- Visualize GT annotations: [saco_gold_silver_vis_example.ipynb](https://github.com/facebookresearch/sam3/blob/main/examples/saco_gold_silver_vis_example.ipynb)
 
 ## Run evaluation
 
-The official metric for SA-Co/Silver is cgF1. Please refer to the evt_r1.tools.sam3.sam3 paper for details.
+The official metric for SA-Co/Silver is cgF1. Please refer to the SAM3 paper for details.
 Unlike Gold, the silver subset only has a single annotation per image. Therefore, the performance may be underestimated, because the model may be wrongly penalized for choosing an interpretation which is valid but different from that of the human annotator.
 
-### Evaluate evt_r1.tools.sam3.sam3
+### Evaluate SAM3
 
-We provide inference configurations to reproduce the evaluation of evt_r1.tools.sam3.sam3.
-First, please edit the file [eval_base.yaml](https://github.com/facebookresearch/evt_r1.tools.sam3.sam3/blob/main/evt_r1.tools.sam3.sam3/train/configs/eval_base.yaml) with the paths where you downloaded the images and annotations above.
+We provide inference configurations to reproduce the evaluation of SAM3.
+First, please edit the file [eval_base.yaml](https://github.com/facebookresearch/sam3/blob/main/sam3/train/configs/eval_base.yaml) with the paths where you downloaded the images and annotations above.
 
 There are 10 subsets and as many configurations to be run.
 Let's take the first subset as an example. The inference can be run locally using the following command (you can adjust the number of gpus):
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/silver_image_evals/evt_r1.tools.sam3.sam3_gold_image_bdd100k.yaml --use-cluster 0 --num-gpus 1
+python sam3/train/train.py -c configs/silver_image_evals/sam3_gold_image_bdd100k.yaml --use-cluster 0 --num-gpus 1
 ```
 The predictions will be dumped in the folder specified in eval_base.yaml.
 
 We also provide support for SLURM-based cluster inference. Edit the eval_base.yaml file to reflect your slurm configuration (partition, qos, ...), then run
 
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/silver_image_evals/evt_r1.tools.sam3.sam3_gold_image_bdd100k.yaml --use-cluster 1
+python sam3/train/train.py -c configs/silver_image_evals/sam3_gold_image_bdd100k.yaml --use-cluster 1
 ```
 
 ### Offline evaluation
 
 If you have the predictions in the COCO result format (see [here](https://cocodataset.org/#format-results)), then we provide scripts to easily run the evaluation.
 
-For an example on how to run the evaluator on all subsets and aggregate results, see the following notebook: [saco_gold_silver_eval_example.ipynb](https://github.com/facebookresearch/evt_r1.tools.sam3.sam3/blob/main/examples/saco_gold_silver_eval_example.ipynb)
+For an example on how to run the evaluator on all subsets and aggregate results, see the following notebook: [saco_gold_silver_eval_example.ipynb](https://github.com/facebookresearch/sam3/blob/main/examples/saco_gold_silver_eval_example.ipynb)
 
 If you have a prediction file for a given subset, you can run the evaluator specifically for that one using the standalone script. Example:
 ```bash
@@ -308,7 +308,7 @@ python scripts/eval/standalone_cgf1.py --pred_file /path/to/coco_predictions_seg
     <td>73.81</td> <td>8.18</td> <td>0.2</td> <td>40.91</td> <td>9.48</td> <td>0.22</td> <td>43.1</td> <td>8.66</td> <td>0.23</td> <td>37.65</td> <td>2.8</td>
     <td>0.08</td> <td>34.99</td>
   </tr>
-  <tr> <td>evt_r1.tools.sam3.sam3</td> <td>49.57</td> <td>0.76</td> <td>65.17</td> <td>46.61</td> <td>0.78</td> <td>60.13</td> <td>45.58</td> <td>0.76</td>
+  <tr> <td>SAM3</td> <td>49.57</td> <td>0.76</td> <td>65.17</td> <td>46.61</td> <td>0.78</td> <td>60.13</td> <td>45.58</td> <td>0.76</td>
     <td>60.35</td> <td>38.64</td> <td>0.62</td> <td>62.56</td> <td>52.96</td> <td>0.79</td> <td>67.21</td> <td>70.07</td> <td>0.89</td>
     <td>78.73</td> <td>65.8</td> <td>0.82</td> <td>80.67</td> <td>38.06</td> <td>0.66</td> <td>57.62</td> <td>44.36</td> <td>0.67</td>
     <td>66.05</td> <td>42.07</td> <td>0.72</td> <td>58.36</td> <td>51.53</td> <td>0.86</td> <td>59.98</td>
@@ -366,7 +366,7 @@ A sample annotation from DROID domain looks as follows:
     "area": 0.17324327256944444,
     "id": 1,
     "image_id": 10000000,
-    "source": "created by evt_r1.tools.sam3.sam3",
+    "source": "created by SAM3",
     "bbox": [
       0.03750000149011612,
       0.5083333253860474,

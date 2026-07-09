@@ -20,11 +20,11 @@ paths:
 trainer:
   data:
     val:
-      _target_: evt_r1.tools.sam3.sam3.train.data.torch_dataset.TorchDataset
+      _target_: sam3.train.data.torch_dataset.TorchDataset
       dataset:
-        _target_: evt_r1.tools.sam3.sam3.train.data.evt_r1.tools.sam3.sam3_image_dataset.evt_r1.tools.sam3.sam3ImageDataset
+        _target_: sam3.train.data.sam3_image_dataset.Sam3ImageDataset
         coco_json_loader:
-          _target_: evt_r1.tools.sam3.sam3.train.data.coco_json_loaders.evt_r1.tools.sam3.sam3_EVAL_API_FROM_JSON_NP
+          _target_: sam3.train.data.coco_json_loaders.SAM3_EVAL_API_FROM_JSON_NP
           _partial_: true
         img_folder: ${paths.img_path}
         ann_file: ${paths.coco_gt}
@@ -39,7 +39,7 @@ trainer:
       pin_memory: False
       drop_last: False
       collate_fn:
-        _target_: evt_r1.tools.sam3.sam3.train.data.collator.collate_fn_api
+        _target_: sam3.train.data.collator.collate_fn_api
         _partial_: true
         repeats: ${scratch.hybrid_repeats}
         dict_key: silver_ego4d
@@ -48,7 +48,7 @@ trainer:
     val:
       silver_ego4d: # this key matches the "dict_key" in the dataloader's collate function
         cgf1:
-          _target_: evt_r1.tools.sam3.sam3.eval.coco_writer.PredictionDumper
+          _target_: sam3.eval.coco_writer.PredictionDumper
           iou_type: "segm"
           dump_dir: ${launcher.experiment_log_dir}/dumps/silver_ego4d
           merge_predictions: True
@@ -56,9 +56,9 @@ trainer:
           gather_pred_via_filesys: ${scratch.gather_pred_via_filesys}
           maxdets: 1000000 # no limit
           pred_file_evaluators:
-            - _target_: evt_r1.tools.sam3.sam3.eval.cgf1_eval.CGF1Evaluator
+            - _target_: sam3.eval.cgf1_eval.CGF1Evaluator
               gt_path: ${paths.coco_gt}
               iou_type: "bbox"
-            - _target_: evt_r1.tools.sam3.sam3.eval.cgf1_eval.CGF1Evaluator
+            - _target_: sam3.eval.cgf1_eval.CGF1Evaluator
               gt_path: ${paths.coco_gt}
               iou_type: "segm"

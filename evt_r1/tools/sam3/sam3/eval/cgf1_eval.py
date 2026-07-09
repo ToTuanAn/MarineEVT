@@ -180,7 +180,7 @@ class CGF1Eval(COCOeval):
     """
     This evaluator is based upon COCO evaluation, but evaluates the model in a more realistic setting
     for downstream applications.
-    See evt_r1.tools.sam3.sam3 paper for the details on the CGF1 metric.
+    See SAM3 paper for the details on the CGF1 metric.
 
     Do not use this evaluator directly. Prefer the CGF1Evaluator wrapper.
 

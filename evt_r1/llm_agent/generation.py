@@ -278,16 +278,19 @@ class LLMGenerationManager:
     def run_llm_loop(self, gen_batch, initial_input_ids: torch.Tensor) -> Tuple[Dict, Dict]:
         """Run main LLM generation loop."""
         rollings = gen_batch
-        rollings_processed = self.preprocess_gen_batch(rollings)
+        left_side = self.preprocess_gen_batch(rollings)
 
-        rollings_processed.batch = self.tensor_fn.cut_to_effective_len(
-                rollings_processed.batch,
+        left_side.batch = self.tensor_fn.cut_to_effective_len(
+                left_side.batch,
                 keys=['input_ids', 'attention_mask', 'position_ids']
             )
+        
+        original_left_side = {'input_ids': left_side.batch["input_ids"][:, -self.config.max_start_length:]}
+        original_right_side = {'responses': left_side.batch["input_ids"][:, []], 'responses_with_info_mask': left_side.batch["input_ids"][:, []]}
 
         rollings_active = DataProto.from_dict(
                     tensors={
-                        k: v for k, v in rollings_processed.batch.items()
+                        k: v for k, v in left_side.batch.items()
                     },      
                     non_tensors={
                         'images': rollings.non_tensor_batch["images"],
@@ -295,24 +298,35 @@ class LLMGenerationManager:
                         'question_format': rollings.non_tensor_batch["question_format"],
                     })            
         
-        final_output = copy.deepcopy(rollings_active)
+        right_side = {}
         
         # print(f"Rolling active: {rollings_active}")
         gen_output = self._generate_with_gpu_padding(rollings_active)
         meta_info = gen_output.meta_info            
         responses_ids, responses_str, thinks_str = self._postprocess_responses(gen_output.batch['responses'])
 
-        final_output.batch['responses'] = gen_output.batch['responses'] 
-        final_output.non_tensor_batch['responses_str'] = responses_str 
-        final_output.non_tensor_batch['thinks_str'] = thinks_str 
-
-        reward_scores = self.reward_fn(final_output)
-        final_output.non_tensor_batch['reward_scores'] = reward_scores 
-        return final_output
+        right_side = self._update_right_side(
+            original_right_side,
+            responses_ids,
+        )
+        # right_side['responses_str'] = responses_str 
+        # right_side['thinks_str'] = thinks_str 
+        # reward_scores = self.reward_fn(right_side)
+        # right_side['token_level_scores'] = reward_scores 
+        
+        return self._compose_final_output(left_side=original_left_side,
+                                          right_side=right_side,
+                                          right_side_non_tensor={
+                                                'responses_str': responses_str,
+                                                'thinks_str': thinks_str,
+                                                'images': rollings.non_tensor_batch["images"].tolist(),
+                                                'reward_model': rollings.non_tensor_batch["reward_model"].tolist(),
+                                                'question_format': rollings.non_tensor_batch["question_format"].tolist(),
+                                          })
     
     def _compose_final_output(self, left_side: Dict,
                             right_side: Dict,
-                            meta_info: Dict) -> Tuple[Dict, Dict]:
+                            right_side_non_tensor: Dict) -> Tuple[Dict, Dict]:
         """Compose final generation output."""
         final_output = right_side.copy()
         final_output['prompts'] = left_side['input_ids']
@@ -336,9 +350,16 @@ class LLMGenerationManager:
         final_output['position_ids'] = self.tensor_fn.create_position_ids(
             final_output['attention_mask']
         )
+
+        for key in final_output:
+            print(f"Key: {key}, Type: {type(final_output[key])}")
         
-        final_output = DataProto.from_dict(final_output)
-        final_output.meta_info.update(meta_info)
+        final_output = DataProto.from_dict(
+                    tensors={
+                        k: final_output[k] for k in final_output
+                    },      
+                    non_tensors=right_side_non_tensor)
+        # final_output.meta_info.update(meta_info)
         
         return final_output
 

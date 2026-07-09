@@ -20,11 +20,19 @@ sam_model = build_sam3_image_model(bpe_path=bpe_path, checkpoint_path="/home/tat
 
 def call_sam(json_content, image_paths):
     prompts = []
-    prompts.append(json_content["prompt"])
-    if "ground_type" in json_content:
-        ground_type = json_content["ground_type"]
+
+    if "function" in json_content:
+        prompts.append(json_content["function"]["arguments"]["prompt"])
+        if "ground_type" in json_content["function"]["arguments"]:
+            ground_type = json_content["function"]["arguments"]["ground_type"]
+        else:
+            ground_type = "highest"
     else:
-        ground_type = "highest"
+        prompts.append(json_content["prompt"])
+        if "ground_type" in json_content:
+            ground_type = json_content["ground_type"]
+        else:
+            ground_type = "highest"
 
     if ground_type == "highest":
         sam_processor = Sam3Processor(sam_model, confidence_threshold=0.02, device=runtime_device)

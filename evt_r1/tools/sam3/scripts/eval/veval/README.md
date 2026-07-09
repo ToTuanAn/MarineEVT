@@ -211,15 +211,15 @@ video_np_pair {
     "num_masklets" int
 }
 ```
-[evt_r1.tools.sam3.sam3/examples/saco_veval_vis_example.ipynb](https://github.com/facebookresearch/evt_r1.tools.sam3.sam3/blob/main/examples/saco_veval_vis_example.ipynb) shows some examples of the data format and data visualization.
+[sam3/examples/saco_veval_vis_example.ipynb](https://github.com/facebookresearch/sam3/blob/main/examples/saco_veval_vis_example.ipynb) shows some examples of the data format and data visualization.
 
 ## Run Offline Eval
 An example notebook and an eval script have been provided for offline evaluation.
 ```
-evt_r1.tools.sam3.sam3/
+sam3/
 ├── examples/
 │   └── saco_veval_eval_example.ipynb  # this notebook will load eval res or run the eval on the fly, and print the results
-└── evt_r1.tools.sam3.sam3/eval/
+└── sam3/eval/
     └── saco_veval_eval.py  # this script will run the offline evaluator
 ```
 `saco_veval_eval.py` supports two modes, `one` and `all`.
@@ -229,9 +229,9 @@ evt_r1.tools.sam3.sam3/
 Example usage
 ```
 python saco_veval_eval.py one \
---gt_annot_file ../evt_r1.tools.sam3.sam3/assets/veval/toy_gt_and_pred/toy_saco_veval_sav_test_gt.json \
---pred_file ../evt_r1.tools.sam3.sam3/assets/veval/toy_gt_and_pred/toy_saco_veval_sav_test_pred.json \
---eval_res_file ../evt_r1.tools.sam3.sam3/assets/veval/toy_gt_and_pred/toy_saco_veval_sav_test_eval_res.json
+--gt_annot_file ../sam3/assets/veval/toy_gt_and_pred/toy_saco_veval_sav_test_gt.json \
+--pred_file ../sam3/assets/veval/toy_gt_and_pred/toy_saco_veval_sav_test_pred.json \
+--eval_res_file ../sam3/assets/veval/toy_gt_and_pred/toy_saco_veval_sav_test_eval_res.json
 ```
 * `gt_annot_file`: the location of the GT file
 * `pred_file`: the location of the Pred file

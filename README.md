@@ -144,35 +144,26 @@ pip install -r requirements.txt
 
 ### Inference with EVT-R1
 
-```python
-from evt_r1 import EVTR1
-
-# Initialize model
-model = EVTR1.from_pretrained("path/to/evt-r1-checkpoint")
-
-# Load video and question
-video_path = "path/to/video.mp4"
-question = "What species is interacting with the coral reef?"
-
-# Generate answer with visual tool reasoning
-answer = model.generate(video_path, question)
-print(answer)
+```bash
+python agent_inference.py
 ```
 
 ### Training EVT-R1
 
+Starting the tool server by running the bash command
+
 ```bash
-# Training script
-python train.py \
-    --model_name qwen3-vl-8b \
-    --data_path ./data/MarineEVT \
-    --output_dir ./checkpoints/evt-r1 \
-    --num_epochs 10 \
-    --batch_size 4 \
-    --learning_rate 1e-5
+nohup bash start_tool_server.sh > server.log 2>&1 &
 ```
 
-### Evaluation
+Training with ray by running the bash command
+
+```bash
+bash ray.sh
+bash train_evt_r1.sh
+```
+
+<!-- ### Evaluation
 
 ```bash
 # Evaluate on MarineEVT benchmark
@@ -180,7 +171,7 @@ python evaluate.py \
     --checkpoint ./checkpoints/evt-r1 \
     --test_file ./data/MarineEVT/annotations/test.json \
     --output_dir ./results
-```
+``` -->
 
 ---
 

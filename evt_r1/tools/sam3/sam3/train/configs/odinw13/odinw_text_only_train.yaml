@@ -5,7 +5,7 @@ defaults:
 # ============================================================================
 # Paths Configuration (Chage this to your own paths)
 # ============================================================================
-#  python evt_r1.tools.sam3.sam3/train/train.py -c configs/odinw_text_only.yaml --use-cluster 1 --partition ${PARTITION} --account ${ACCOUNT} --qos ${QoS}
+#  python sam3/train/train.py -c configs/odinw_text_only.yaml --use-cluster 1 --partition ${PARTITION} --account ${ACCOUNT} --qos ${QoS}
 
 paths:
   odinw_data_root: <YOUR_DATA_DIR>
@@ -19,77 +19,77 @@ odinw_train:
   supercategory_tuple: ${all_odinw_supercategories.${string:${submitit.job_array.task_index}}}
   # Training transforms pipeline
   train_transforms:
-    - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.ComposeAPI
+    - _target_: sam3.train.transforms.basic_for_api.ComposeAPI
       transforms:
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
+        - _target_: sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
           query_filter:
-            _target_: evt_r1.tools.sam3.sam3.train.transforms.filter_query_transforms.FilterCrowds
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.point_sampling.RandomizeInputBbox
+            _target_: sam3.train.transforms.filter_query_transforms.FilterCrowds
+        - _target_: sam3.train.transforms.point_sampling.RandomizeInputBbox
           box_noise_std: 0.1
           box_noise_max: 20
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.segmentation.DecodeRle
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.RandomResizeAPI
+        - _target_: sam3.train.transforms.segmentation.DecodeRle
+        - _target_: sam3.train.transforms.basic_for_api.RandomResizeAPI
           sizes:
-            _target_: evt_r1.tools.sam3.sam3.train.transforms.basic.get_random_resize_scales
+            _target_: sam3.train.transforms.basic.get_random_resize_scales
             size: ${scratch.resolution}
             min_size: 480
             rounded: false
           max_size:
-            _target_: evt_r1.tools.sam3.sam3.train.transforms.basic.get_random_resize_max_size
+            _target_: sam3.train.transforms.basic.get_random_resize_max_size
             size: ${scratch.resolution}
           square: true
           consistent_transform: ${scratch.consistent_transform}
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.PadToSizeAPI
+        - _target_: sam3.train.transforms.basic_for_api.PadToSizeAPI
           size: ${scratch.resolution}
           consistent_transform: ${scratch.consistent_transform}
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.ToTensorAPI
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
+        - _target_: sam3.train.transforms.basic_for_api.ToTensorAPI
+        - _target_: sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
           query_filter:
-            _target_: evt_r1.tools.sam3.sam3.train.transforms.filter_query_transforms.FilterEmptyTargets
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.NormalizeAPI
+            _target_: sam3.train.transforms.filter_query_transforms.FilterEmptyTargets
+        - _target_: sam3.train.transforms.basic_for_api.NormalizeAPI
           mean: ${scratch.train_norm_mean}
           std: ${scratch.train_norm_std}
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
+        - _target_: sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
           query_filter:
-            _target_: evt_r1.tools.sam3.sam3.train.transforms.filter_query_transforms.FilterEmptyTargets
-    - _target_: evt_r1.tools.sam3.sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
+            _target_: sam3.train.transforms.filter_query_transforms.FilterEmptyTargets
+    - _target_: sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
       query_filter:
-        _target_: evt_r1.tools.sam3.sam3.train.transforms.filter_query_transforms.FilterFindQueriesWithTooManyOut
+        _target_: sam3.train.transforms.filter_query_transforms.FilterFindQueriesWithTooManyOut
         max_num_objects: ${scratch.max_ann_per_img}
 
   # Validation transforms pipeline
   val_transforms:
-    - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.ComposeAPI
+    - _target_: sam3.train.transforms.basic_for_api.ComposeAPI
       transforms:
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.RandomResizeAPI
+        - _target_: sam3.train.transforms.basic_for_api.RandomResizeAPI
           sizes: ${scratch.resolution}
           max_size:
-            _target_: evt_r1.tools.sam3.sam3.train.transforms.basic.get_random_resize_max_size
+            _target_: sam3.train.transforms.basic.get_random_resize_max_size
             size: ${scratch.resolution}
           square: true
           consistent_transform: False
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.ToTensorAPI
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.NormalizeAPI
+        - _target_: sam3.train.transforms.basic_for_api.ToTensorAPI
+        - _target_: sam3.train.transforms.basic_for_api.NormalizeAPI
           mean: ${scratch.val_norm_mean}
           std: ${scratch.val_norm_std}
 
   # loss config (no mask loss)
   loss:
-    _target_: evt_r1.tools.sam3.sam3.train.loss.evt_r1.tools.sam3.sam3_loss.evt_r1.tools.sam3.sam3LossWrapper
+    _target_: sam3.train.loss.sam3_loss.Sam3LossWrapper
     matcher: ${scratch.matcher}
     o2m_weight: 2.0
     o2m_matcher:
-      _target_: evt_r1.tools.sam3.sam3.train.matcher.BinaryOneToManyMatcher
+      _target_: sam3.train.matcher.BinaryOneToManyMatcher
       alpha: 0.3
       threshold: 0.4
       topk: 4
     use_o2m_matcher_on_o2m_aux: ${scratch.use_o2m_matcher_on_o2m_aux}
     loss_fns_find:
-      - _target_: evt_r1.tools.sam3.sam3.train.loss.loss_fns.Boxes
+      - _target_: sam3.train.loss.loss_fns.Boxes
         weight_dict:
           loss_bbox: 5.0
           loss_giou: 2.0
-      - _target_: evt_r1.tools.sam3.sam3.train.loss.loss_fns.IABCEMdetr
+      - _target_: sam3.train.loss.loss_fns.IABCEMdetr
         weak_loss: False
         weight_dict:
           loss_ce: ${scratch.loss_ce_weight}  # Change
@@ -113,7 +113,7 @@ scratch:
   enable_segmentation: False
   use_act_checkpoint_geo_encoder: True
   input_geometry_encoder:
-    _target_: evt_r1.tools.sam3.sam3.model.geometry_encoders.SequenceGeometryEncoder
+    _target_: sam3.model.geometry_encoders.SequenceGeometryEncoder
     pos_enc: ${scratch.pos_embed}
     encode_boxes_as_points: False
     points_direct_project: True
@@ -126,7 +126,7 @@ scratch:
     num_layers: 3
     use_act_ckpt: ${scratch.use_act_checkpoint_geo_encoder}
     layer:
-      _target_: evt_r1.tools.sam3.sam3.model.encoder.TransformerEncoderLayer
+      _target_: sam3.model.encoder.TransformerEncoderLayer
       activation: "relu"
       d_model: ${scratch.d_model}
       dim_feedforward: 2048
@@ -136,14 +136,14 @@ scratch:
       pos_enc_at_cross_attn_queries: false
       pos_enc_at_cross_attn_keys: true
       self_attention:
-        _target_: evt_r1.tools.sam3.sam3.model.attention.MultiheadAttention
+        _target_: sam3.model.attention.MultiheadAttention
         attn_type: Vanilla
         num_heads: 8
         dropout: ${scratch.encoder_dropout}
         embed_dim: ${scratch.d_model}
         batch_first: False
       cross_attention:
-        _target_: evt_r1.tools.sam3.sam3.model.attention.MultiheadAttention
+        _target_: sam3.model.attention.MultiheadAttention
         attn_type: Vanilla
         num_heads: 8
         dropout: ${scratch.encoder_dropout}
@@ -161,7 +161,7 @@ scratch:
   decoder_dropout: 0.1
 
   tokenizer_ve:
-    _target_:  evt_r1.tools.sam3.sam3.model.tokenizer_ve.SimpleTokenizer
+    _target_:  sam3.model.tokenizer_ve.SimpleTokenizer
     bpe_path: ${paths.bpe_path}
 
 
@@ -189,7 +189,7 @@ scratch:
   use_instance_query: true
   d_model: 256
   pos_embed:
-    _target_: evt_r1.tools.sam3.sam3.model.position_encoding.PositionEmbeddingSine
+    _target_: sam3.model.position_encoding.PositionEmbeddingSine
     num_pos_feats: ${scratch.d_model}
     normalize: true
     scale: null
@@ -198,7 +198,7 @@ scratch:
   # Box processing
   use_presence_eval: True
   original_box_postprocessor:
-    _target_: evt_r1.tools.sam3.sam3.eval.postprocessors.PostProcessImage
+    _target_: sam3.eval.postprocessors.PostProcessImage
     max_dets_per_img: -1  # infinite detections
     use_original_ids: true
     use_original_sizes_box: true
@@ -207,7 +207,7 @@ scratch:
 
   # Matcher configuration
   matcher:
-    _target_: evt_r1.tools.sam3.sam3.train.matcher.BinaryHungarianMatcherV2
+    _target_: sam3.train.matcher.BinaryHungarianMatcherV2
     focal: true
     cost_class: 2.0
     cost_bbox: 5.0
@@ -258,9 +258,9 @@ scratch:
 # ============================================================================
 
 trainer:
-  _target_: evt_r1.tools.sam3.sam3.train.trainer.Trainer
+  _target_: sam3.train.trainer.Trainer
   skip_saving_ckpts: true
-  # _target_: evt_r1.tools.sam3.sam3.train.trainer.Trainer
+  # _target_: sam3.train.trainer.Trainer
   # skip_saving_ckpts: true
   empty_gpu_mem_cache_after_eval: True
   skip_first_val: True
@@ -278,13 +278,13 @@ trainer:
   loss:
     all: ${odinw_train.loss}
     default:
-      _target_: evt_r1.tools.sam3.sam3.train.loss.evt_r1.tools.sam3.sam3_loss.DummyLoss
+      _target_: sam3.train.loss.sam3_loss.DummyLoss
 
   data:
     train:
-      _target_: evt_r1.tools.sam3.sam3.train.data.torch_dataset.TorchDataset
+      _target_: sam3.train.data.torch_dataset.TorchDataset
       dataset:
-        _target_: evt_r1.tools.sam3.sam3.train.data.evt_r1.tools.sam3.sam3_image_dataset.evt_r1.tools.sam3.sam3ImageDataset
+        _target_: sam3.train.data.sam3_image_dataset.Sam3ImageDataset
         limit_ids: ${odinw_train.num_images}
         transforms: ${odinw_train.train_transforms}
         load_segmentation: ${scratch.enable_segmentation}
@@ -296,10 +296,10 @@ trainer:
         use_caching: False
         img_folder: ${paths.odinw_data_root}/${odinw_train.supercategory_tuple.train.img_folder}
         ann_file:
-          _target_: evt_r1.tools.sam3.sam3.eval.coco_reindex.reindex_coco_to_temp
+          _target_: sam3.eval.coco_reindex.reindex_coco_to_temp
           input_json_path: ${paths.odinw_data_root}/${odinw_train.supercategory_tuple.train.json}
         coco_json_loader:
-          _target_: evt_r1.tools.sam3.sam3.train.data.coco_json_loaders.COCO_FROM_JSON
+          _target_: sam3.train.data.coco_json_loaders.COCO_FROM_JSON
           prompts: ${odinw35_prompts.${odinw_train.supercategory_tuple.name}} #${odinw_train.supercategory_tuple.name)
           _partial_: true
       shuffle: True
@@ -308,26 +308,26 @@ trainer:
       pin_memory: False
       drop_last: True
       collate_fn:
-        _target_: evt_r1.tools.sam3.sam3.train.data.collator.collate_fn_api
+        _target_: sam3.train.data.collator.collate_fn_api
         _partial_: true
         repeats: ${scratch.hybrid_repeats}
         dict_key: all
         with_seg_masks: ${scratch.enable_segmentation}
 
     val:
-      _target_: evt_r1.tools.sam3.sam3.train.data.torch_dataset.TorchDataset
+      _target_: sam3.train.data.torch_dataset.TorchDataset
       dataset:
-        _target_: evt_r1.tools.sam3.sam3.train.data.evt_r1.tools.sam3.sam3_image_dataset.evt_r1.tools.sam3.sam3ImageDataset
+        _target_: sam3.train.data.sam3_image_dataset.Sam3ImageDataset
         load_segmentation: ${scratch.enable_segmentation}
         coco_json_loader:
-          _target_: evt_r1.tools.sam3.sam3.train.data.coco_json_loaders.COCO_FROM_JSON
+          _target_: sam3.train.data.coco_json_loaders.COCO_FROM_JSON
           prompts: ${odinw35_prompts.${odinw_train.supercategory_tuple.name}}
           include_negatives: true
           category_chunk_size: 20 # Note: Since we are doing AP +ve we need to include all categories!
           _partial_: true
         img_folder: ${paths.odinw_data_root}/${odinw_train.supercategory_tuple.val.img_folder}
         ann_file:
-          _target_: evt_r1.tools.sam3.sam3.eval.coco_reindex.reindex_coco_to_temp
+          _target_: sam3.eval.coco_reindex.reindex_coco_to_temp
           input_json_path: ${paths.odinw_data_root}/${odinw_train.supercategory_tuple.val.json}
         transforms: ${odinw_train.val_transforms}
         max_ann_per_img: 100000
@@ -340,14 +340,14 @@ trainer:
       pin_memory: False
       drop_last: False
       collate_fn:
-        _target_: evt_r1.tools.sam3.sam3.train.data.collator.collate_fn_api
+        _target_: sam3.train.data.collator.collate_fn_api
         _partial_: true
         repeats: 1
         dict_key: odinw35
         with_seg_masks: ${scratch.enable_segmentation}
 
   model:
-    _target_: evt_r1.tools.sam3.sam3.model_builder.build_evt_r1.tools.sam3.sam3_image_model
+    _target_: sam3.model_builder.build_sam3_image_model
     bpe_path: ${paths.bpe_path}
     device: cpus
     eval_mode: false # Set to false if training
@@ -357,7 +357,7 @@ trainer:
     val:
       odinw35:
         detection:
-          _target_: evt_r1.tools.sam3.sam3.eval.coco_writer.PredictionDumper
+          _target_: sam3.eval.coco_writer.PredictionDumper
           iou_type: "bbox"
           dump_dir: ${launcher.experiment_log_dir}/dumps/odinw/${odinw_train.supercategory_tuple.name}
           merge_predictions: True
@@ -365,9 +365,9 @@ trainer:
           gather_pred_via_filesys: ${scratch.gather_pred_via_filesys}
           maxdets: 100
           pred_file_evaluators:
-            - _target_: evt_r1.tools.sam3.sam3.eval.coco_eval_offline.CocoEvaluatorOfflineWithPredFileEvaluators
+            - _target_: sam3.eval.coco_eval_offline.CocoEvaluatorOfflineWithPredFileEvaluators
               gt_path:
-                _target_: evt_r1.tools.sam3.sam3.eval.coco_reindex.reindex_coco_to_temp
+                _target_: sam3.eval.coco_reindex.reindex_coco_to_temp
                 input_json_path: ${paths.odinw_data_root}/${odinw_train.supercategory_tuple.val.json}
               tide: False
               iou_type: "bbox"
@@ -382,12 +382,12 @@ trainer:
       _target_: torch.optim.AdamW
 
     gradient_clip:
-      _target_: evt_r1.tools.sam3.sam3.train.optim.optimizer.GradientClipper
+      _target_: sam3.train.optim.optimizer.GradientClipper
       max_norm: 0.1
       norm_type: 2
 
     param_group_modifiers:
-      - _target_: evt_r1.tools.sam3.sam3.train.optim.optimizer.layer_decay_param_modifier
+      - _target_: sam3.train.optim.optimizer.layer_decay_param_modifier
         _partial_: True
         layer_decay_value: ${scratch.lrd_vision_backbone}
         apply_to: 'backbone.vision_backbone.trunk'
@@ -398,13 +398,13 @@ trainer:
     options:
       lr:
         - scheduler:  # transformer and class_embed
-            _target_: evt_r1.tools.sam3.sam3.train.optim.schedulers.InverseSquareRootParamScheduler
+            _target_: sam3.train.optim.schedulers.InverseSquareRootParamScheduler
             base_lr: ${scratch.lr_transformer}
             timescale: ${scratch.scheduler_timescale}
             warmup_steps: ${scratch.scheduler_warmup}
             cooldown_steps: ${scratch.scheduler_cooldown}
         - scheduler:
-            _target_: evt_r1.tools.sam3.sam3.train.optim.schedulers.InverseSquareRootParamScheduler
+            _target_: sam3.train.optim.schedulers.InverseSquareRootParamScheduler
             base_lr: ${scratch.lr_vision_backbone}
             timescale: ${scratch.scheduler_timescale}
             warmup_steps: ${scratch.scheduler_warmup}
@@ -412,7 +412,7 @@ trainer:
           param_names:
             - 'backbone.vision_backbone.*'
         - scheduler:
-            _target_: evt_r1.tools.sam3.sam3.train.optim.schedulers.InverseSquareRootParamScheduler
+            _target_: sam3.train.optim.schedulers.InverseSquareRootParamScheduler
             base_lr: ${scratch.lr_language_backbone}
             timescale: ${scratch.scheduler_timescale}
             warmup_steps: ${scratch.scheduler_warmup}
@@ -438,7 +438,7 @@ trainer:
 
   logging:
     tensorboard_writer:
-      _target_: evt_r1.tools.sam3.sam3.train.utils.logger.make_tensorboard_logger
+      _target_: sam3.train.utils.logger.make_tensorboard_logger
       log_dir: ${launcher.experiment_log_dir}/tensorboard
       flush_secs: 120
       should_log: True

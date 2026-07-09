@@ -26,79 +26,79 @@ There are two image sources for the evaluation dataset: MetaCLIP and SA-1B.
 # Usage
 ## Visualization
 
-- Visualize GT annotations: [saco_gold_silver_vis_example.ipynb](https://github.com/facebookresearch/evt_r1.tools.sam3.sam3/blob/main/examples/saco_gold_silver_vis_example.ipynb)
-- Visualize GT annotations and sample predictions side-by-side: [evt_r1.tools.sam3.sam3_data_and_predictions_visualization.ipynb](https://github.com/facebookresearch/evt_r1.tools.sam3.sam3/blob/main/examples/evt_r1.tools.sam3.sam3_data_and_predictions_visualization.ipynb)
+- Visualize GT annotations: [saco_gold_silver_vis_example.ipynb](https://github.com/facebookresearch/sam3/blob/main/examples/saco_gold_silver_vis_example.ipynb)
+- Visualize GT annotations and sample predictions side-by-side: [sam3_data_and_predictions_visualization.ipynb](https://github.com/facebookresearch/sam3/blob/main/examples/sam3_data_and_predictions_visualization.ipynb)
 
 
 ## Run evaluation
 
-The official metric for SA-Co/Gold is cgF1. Please refer to the evt_r1.tools.sam3.sam3 paper for details.
-Our evaluator inherits from the official COCO evaluator, with some modifications. Recall that in the Gold subset, there are three annotations for each datapoint. We evaluate against each of them and picks the most favorable (oracle setting). It has minimal dependency (pycocotools, numpy and scipy), to help reusability in other projects. In this section we provide several pointers to run evaluation of evt_r1.tools.sam3.sam3 or third-party models.
+The official metric for SA-Co/Gold is cgF1. Please refer to the SAM3 paper for details.
+Our evaluator inherits from the official COCO evaluator, with some modifications. Recall that in the Gold subset, there are three annotations for each datapoint. We evaluate against each of them and picks the most favorable (oracle setting). It has minimal dependency (pycocotools, numpy and scipy), to help reusability in other projects. In this section we provide several pointers to run evaluation of SAM3 or third-party models.
 
-### Evaluate evt_r1.tools.sam3.sam3
+### Evaluate SAM3
 
-We provide inference configurations to reproduce the evaluation of evt_r1.tools.sam3.sam3.
-First, please edit the file [eval_base.yaml](https://github.com/facebookresearch/evt_r1.tools.sam3.sam3/blob/main/evt_r1.tools.sam3.sam3/train/configs/eval_base.yaml) with the paths where you downloaded the images and annotations above.
+We provide inference configurations to reproduce the evaluation of SAM3.
+First, please edit the file [eval_base.yaml](https://github.com/facebookresearch/sam3/blob/main/sam3/train/configs/eval_base.yaml) with the paths where you downloaded the images and annotations above.
 
 There are 7 subsets and as many configurations to be run.
 Let's take the first subset as an example. The inference can be run locally using the following command (you can adjust the number of gpus):
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/gold_image_evals/evt_r1.tools.sam3.sam3_gold_image_metaclip_nps.yaml --use-cluster 0 --num-gpus 1
+python sam3/train/train.py -c configs/gold_image_evals/sam3_gold_image_metaclip_nps.yaml --use-cluster 0 --num-gpus 1
 ```
 The predictions will be dumped in the folder specified in eval_base.yaml.
 
 We also provide support for SLURM-based cluster inference. Edit the eval_base.yaml file to reflect your slurm configuration (partition, qos, ...), then run
 
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/gold_image_evals/evt_r1.tools.sam3.sam3_gold_image_metaclip_nps.yaml --use-cluster 1
+python sam3/train/train.py -c configs/gold_image_evals/sam3_gold_image_metaclip_nps.yaml --use-cluster 1
 ```
 
 We provide the commands for all subsets below
 #### MetaCLIP captioner NPs
 
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/gold_image_evals/evt_r1.tools.sam3.sam3_gold_image_metaclip_nps.yaml --use-cluster 1
+python sam3/train/train.py -c configs/gold_image_evals/sam3_gold_image_metaclip_nps.yaml --use-cluster 1
 ```
 #### SA-1B captioner NPs
 
 Refer to SA-1B images for this subset. For the other 6 subsets, refer to MetaCLIP images.
 
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/gold_image_evals/evt_r1.tools.sam3.sam3_gold_image_sa1b_nps.yaml --use-cluster 1
+python sam3/train/train.py -c configs/gold_image_evals/sam3_gold_image_sa1b_nps.yaml --use-cluster 1
 ```
 #### Attributes
 
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/gold_image_evals/evt_r1.tools.sam3.sam3_gold_image_attributes.yaml --use-cluster 1
+python sam3/train/train.py -c configs/gold_image_evals/sam3_gold_image_attributes.yaml --use-cluster 1
 ```
 #### Crowded Scenes
 
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/gold_image_evals/evt_r1.tools.sam3.sam3_gold_image_crowded.yaml --use-cluster 1
+python sam3/train/train.py -c configs/gold_image_evals/sam3_gold_image_crowded.yaml --use-cluster 1
 ```
 #### Wiki-Common1K
 
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/gold_image_evals/evt_r1.tools.sam3.sam3_gold_image_wiki_common.yaml --use-cluster 1
+python sam3/train/train.py -c configs/gold_image_evals/sam3_gold_image_wiki_common.yaml --use-cluster 1
 ```
 #### Wiki-Food/Drink
 
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/gold_image_evals/evt_r1.tools.sam3.sam3_gold_image_fg_food.yaml --use-cluster 1
+python sam3/train/train.py -c configs/gold_image_evals/sam3_gold_image_fg_food.yaml --use-cluster 1
 ```
 
 #### Wiki-Sports Equipment
 
 ```bash
-python evt_r1.tools.sam3.sam3/train/train.py -c configs/gold_image_evals/evt_r1.tools.sam3.sam3_gold_image_fg_sports.yaml --use-cluster 1
+python sam3/train/train.py -c configs/gold_image_evals/sam3_gold_image_fg_sports.yaml --use-cluster 1
 ```
 
 ### Offline evaluation
 
 If you have the predictions in the COCO result format (see [here](https://cocodataset.org/#format-results)), then we provide scripts to easily run the evaluation.
 
-For an example on how to run the evaluator on all subsets and aggregate results, see the following notebook: [saco_gold_silver_eval_example.ipynb](https://github.com/facebookresearch/evt_r1.tools.sam3.sam3/blob/main/examples/saco_gold_silver_eval_example.ipynb)
-Alternatively, you can run `python scripts/eval/gold/eval_evt_r1.tools.sam3.sam3.py`
+For an example on how to run the evaluator on all subsets and aggregate results, see the following notebook: [saco_gold_silver_eval_example.ipynb](https://github.com/facebookresearch/sam3/blob/main/examples/saco_gold_silver_eval_example.ipynb)
+Alternatively, you can run `python scripts/eval/gold/eval_sam3.py`
 
 If you have a prediction file for a given subset, you can run the evaluator specifically for that one using the standalone script. Example:
 ```bash
@@ -107,7 +107,7 @@ python scripts/eval/standalone_cgf1.py --pred_file /path/to/coco_predictions_seg
 
 
 # Results
-Here we collect the segmentation results for evt_r1.tools.sam3.sam3 and some baselines. Note that the baselines that do not produce masks are evaluated by converting the boxes to masks using SAM2
+Here we collect the segmentation results for SAM3 and some baselines. Note that the baselines that do not produce masks are evaluated by converting the boxes to masks using SAM2
 <table style="border-color:black;border-style:solid;border-width:1px;border-collapse:collapse;border-spacing:0;text-align:right" class="tg"><thead>
 <tr><th style="text-align:center"></th><th style="text-align:center" colspan="3">Average</th><th style="text-align:center" colspan="3">Captioner metaclip</th><th style="text-align:center" colspan="3">Captioner sa1b</th>
 <th style="text-align:center" colspan="3">Crowded</th><th style="text-align:center" colspan="3">FG food</th><th style="text-align:center" colspan="3">FG sport</th><th style="text-align:center" colspan="3">Attributes</th>

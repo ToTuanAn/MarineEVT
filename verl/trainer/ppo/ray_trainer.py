@@ -479,72 +479,45 @@ class RayPPOTrainer(object):
             is_validation = True,
         )
 
-        if not self.config.do_search:
-            for test_data in self.val_dataloader:
-                test_batch = DataProto.from_single_dict(test_data)
+        for batch_dict in self.val_dataloader:
+            timing_raw = {}
+            batch: DataProto = DataProto.from_single_dict(batch_dict)
+            batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n_agent, interleave=True)
+            batch.non_tensor_batch['uid'] = batch.non_tensor_batch['index'].copy()
 
-                # we only do validation on rule-based rm
-                if self.config.reward_model.enable and test_batch[0].non_tensor_batch['reward_model']['style'] == 'model':
-                    return {}
-
-                test_gen_batch = test_batch.pop(['input_ids', 'attention_mask', 'position_ids'])
-                test_gen_batch.meta_info = {
-                    'eos_token_id': self.tokenizer.eos_token_id,
-                    'pad_token_id': self.tokenizer.pad_token_id,
-                    'recompute_log_prob': False,
-                    'do_sample': False,
-                    'validate': True,
-                }
-
-                # pad to be divisible by dp_size
-                test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_wg.world_size)
-                test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(test_gen_batch_padded)
-                # unpad
-                test_output_gen_batch = unpad_dataproto(test_output_gen_batch_padded, pad_size=pad_size)
-                print('validation generation end')
-
-                test_batch = test_batch.union(test_output_gen_batch)
-
+            # pop those keys for generation
+            test_gen_batch = batch.pop(batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+                                non_tensor_batch_keys=['uid', 'data_source', 'reward_model', 'images', 'question_format'])
+            
+            # test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n_agent, interleave=True)                
+            test_gen_batch.meta_info = {
+                'eos_token_id': self.tokenizer.eos_token_id,
+                'pad_token_id': self.tokenizer.pad_token_id,
+                'recompute_log_prob': False,
+                'do_sample': False,
+                'validate': True,
+            }
+            
+            with _timer('step', timing_raw):
+                first_input_ids = test_gen_batch.batch['input_ids'][:, -gen_config.max_start_length:].clone()
+                with _timer('gen', timing_raw):
+                    generation_manager.timing_raw = timing_raw
+                    final_gen_batch_output = generation_manager.run_llm_loop(
+                        gen_batch=test_gen_batch,
+                        initial_input_ids=first_input_ids,
+                    )
+                
+                test_batch = test_batch.union(final_gen_batch_output)
+                
+                for key in test_batch.batch.keys():
+                    test_batch.batch[key] = test_batch.batch[key].long()
+                
                 # evaluate using reward_function
                 # for certain reward function (e.g. sandbox), the generation can overlap with reward
                 reward_tensor = self.val_reward_fn(test_batch)
 
                 reward_tensor_lst.append(reward_tensor)
                 data_source_lst.append(test_batch.non_tensor_batch.get('data_source', ['unknown'] * reward_tensor.shape[0]))
-        else:
-            for batch_dict in self.val_dataloader:
-                timing_raw = {}
-                test_batch: DataProto = DataProto.from_single_dict(batch_dict)
-                # test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n_agent, interleave=True)
-                
-                test_gen_batch = test_batch.pop(batch_keys=['input_ids', 'attention_mask', 'position_ids'])
-                test_gen_batch.meta_info = {
-                    'eos_token_id': self.tokenizer.eos_token_id,
-                    'pad_token_id': self.tokenizer.pad_token_id,
-                    'recompute_log_prob': False,
-                    'do_sample': False,
-                    'validate': True,
-                }
-                with _timer('step', timing_raw):
-                    first_input_ids = test_gen_batch.batch['input_ids'][:, -gen_config.max_start_length:].clone()
-                    with _timer('gen', timing_raw):
-                        generation_manager.timing_raw = timing_raw
-                        final_gen_batch_output = generation_manager.run_llm_loop(
-                            gen_batch=test_gen_batch,
-                            initial_input_ids=first_input_ids,
-                        )
-                    
-                    test_batch = test_batch.union(final_gen_batch_output)
-                    
-                    for key in test_batch.batch.keys():
-                        test_batch.batch[key] = test_batch.batch[key].long()
-                    
-                    # evaluate using reward_function
-                    # for certain reward function (e.g. sandbox), the generation can overlap with reward
-                    reward_tensor = self.val_reward_fn(test_batch)
-
-                    reward_tensor_lst.append(reward_tensor)
-                    data_source_lst.append(test_batch.non_tensor_batch.get('data_source', ['unknown'] * reward_tensor.shape[0]))
 
         reward_tensor = torch.cat([rw.sum(-1) for rw in reward_tensor_lst], dim=0).cpu()  # (batch_size,)
         # reward_tensor = torch.cat(reward_tensor_lst, dim=0).sum(-1).cpu()  # (batch_size,)
@@ -742,6 +715,7 @@ class RayPPOTrainer(object):
                     # final_gen_batch_output.batch.apply(lambda x: x.long(), inplace=True)
                     for key in final_gen_batch_output.batch.keys():
                         final_gen_batch_output.batch[key] = final_gen_batch_output.batch[key].long()
+                        print(f"Key: {key}, Type: {type(final_gen_batch_output.batch[key])}")
 
                     with torch.no_grad():
                         output = self.actor_rollout_wg.compute_log_prob(final_gen_batch_output)

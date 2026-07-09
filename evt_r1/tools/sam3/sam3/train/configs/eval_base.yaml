@@ -50,19 +50,19 @@ scratch:
   use_presence_eval: True
 
   base_val_transform:
-    - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.ComposeAPI
+    - _target_: sam3.train.transforms.basic_for_api.ComposeAPI
       transforms:
         ######## transforms for validation (begin) ########
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.RandomResizeAPI
+        - _target_: sam3.train.transforms.basic_for_api.RandomResizeAPI
           sizes: ${scratch.resolution}  # originally `resolution: 1024`
           max_size:
-            _target_: evt_r1.tools.sam3.sam3.train.transforms.basic.get_random_resize_max_size
+            _target_: sam3.train.transforms.basic.get_random_resize_max_size
             size: ${scratch.resolution}  # originally `resolution: 1024`
           square: true
           consistent_transform: False
         ######## transforms for validation (end) ########
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.ToTensorAPI
-        - _target_: evt_r1.tools.sam3.sam3.train.transforms.basic_for_api.NormalizeAPI
+        - _target_: sam3.train.transforms.basic_for_api.ToTensorAPI
+        - _target_: sam3.train.transforms.basic_for_api.NormalizeAPI
           mean: ${scratch.val_norm_mean}
           std: ${scratch.val_norm_std}
 
@@ -74,21 +74,21 @@ scratch:
 
   # Box processing
   original_box_postprocessor:
-    _target_: evt_r1.tools.sam3.sam3.eval.postprocessors.PostProcessImage
+    _target_: sam3.eval.postprocessors.PostProcessImage
     max_dets_per_img: -1  # infinite detections
     use_original_ids: true
     use_original_sizes_box: true
     use_presence: ${scratch.use_presence_eval}
 
   box_postprocessor:
-    _target_: evt_r1.tools.sam3.sam3.eval.postprocessors.PostProcessImage
+    _target_: sam3.eval.postprocessors.PostProcessImage
     max_dets_per_img: -1 #infinite detections
     use_original_ids: false
     use_original_sizes_box: false
     use_presence: ${scratch.use_presence_eval}
 
   box_postprocessor_thresholded:
-    _target_: evt_r1.tools.sam3.sam3.eval.postprocessors.PostProcessImage
+    _target_: sam3.eval.postprocessors.PostProcessImage
     max_dets_per_img: -1 #infinite detections
     use_original_ids: false
     use_original_sizes_box: false
@@ -96,7 +96,7 @@ scratch:
     use_presence: ${scratch.use_presence_eval}
 
   mask_postprocessor_thresholded:
-    _target_: evt_r1.tools.sam3.sam3.eval.postprocessors.PostProcessImage
+    _target_: sam3.eval.postprocessors.PostProcessImage
     max_dets_per_img: -1 #infinite detections
     iou_type: "segm"
     use_original_ids: false
@@ -148,7 +148,7 @@ scratch:
 # ============================================================================
 
 trainer:
-  _target_: evt_r1.tools.sam3.sam3.train.trainer.Trainer
+  _target_: sam3.train.trainer.Trainer
   skip_saving_ckpts: true
   empty_gpu_mem_cache_after_eval: True
   skip_first_val: True
@@ -165,16 +165,16 @@ trainer:
 
   loss:
     all:
-      _target_: evt_r1.tools.sam3.sam3.train.loss.evt_r1.tools.sam3.sam3_loss.DummyLoss
+      _target_: sam3.train.loss.sam3_loss.DummyLoss
     default:
-      _target_: evt_r1.tools.sam3.sam3.train.loss.evt_r1.tools.sam3.sam3_loss.DummyLoss
+      _target_: sam3.train.loss.sam3_loss.DummyLoss
 
   data:
     train: null
     val: null
 
   model:
-    _target_: evt_r1.tools.sam3.sam3.model_builder.build_evt_r1.tools.sam3.sam3_image_model
+    _target_: sam3.model_builder.build_sam3_image_model
     bpe_path: ${paths.bpe_path}
     device: cpus
     eval_mode: true
@@ -193,12 +193,12 @@ trainer:
       _target_: torch.optim.AdamW
 
     gradient_clip:
-      _target_: evt_r1.tools.sam3.sam3.train.optim.optimizer.GradientClipper
+      _target_: sam3.train.optim.optimizer.GradientClipper
       max_norm: 0.1
       norm_type: 2
 
     param_group_modifiers:
-      - _target_: evt_r1.tools.sam3.sam3.train.optim.optimizer.layer_decay_param_modifier
+      - _target_: sam3.train.optim.optimizer.layer_decay_param_modifier
         _partial_: True
         layer_decay_value: ${scratch.lrd_vision_backbone}
         apply_to: 'backbone.vision_backbone.trunk'
@@ -209,13 +209,13 @@ trainer:
     options:
       lr:
         - scheduler:  # transformer and class_embed
-            _target_: evt_r1.tools.sam3.sam3.train.optim.schedulers.InverseSquareRootParamScheduler
+            _target_: sam3.train.optim.schedulers.InverseSquareRootParamScheduler
             base_lr: ${scratch.lr_transformer}
             timescale: ${scratch.scheduler_timescale}
             warmup_steps: ${scratch.scheduler_warmup}
             cooldown_steps: ${scratch.scheduler_cooldown}
         - scheduler:
-            _target_: evt_r1.tools.sam3.sam3.train.optim.schedulers.InverseSquareRootParamScheduler
+            _target_: sam3.train.optim.schedulers.InverseSquareRootParamScheduler
             base_lr: ${scratch.lr_vision_backbone}
             timescale: ${scratch.scheduler_timescale}
             warmup_steps: ${scratch.scheduler_warmup}
@@ -223,7 +223,7 @@ trainer:
           param_names:
             - 'backbone.vision_backbone.*'
         - scheduler:
-            _target_: evt_r1.tools.sam3.sam3.train.optim.schedulers.InverseSquareRootParamScheduler
+            _target_: sam3.train.optim.schedulers.InverseSquareRootParamScheduler
             base_lr: ${scratch.lr_language_backbone}
             timescale: ${scratch.scheduler_timescale}
             warmup_steps: ${scratch.scheduler_warmup}
@@ -249,7 +249,7 @@ trainer:
 
   logging:
     tensorboard_writer:
-      _target_: evt_r1.tools.sam3.sam3.train.utils.logger.make_tensorboard_logger
+      _target_: sam3.train.utils.logger.make_tensorboard_logger
       log_dir: ${launcher.experiment_log_dir}/tensorboard
       flush_secs: 120
       should_log: True
