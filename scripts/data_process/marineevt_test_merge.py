@@ -167,6 +167,16 @@ def process_groudntruth(turn_data, frames):
         "output_target": response,
     }
 
+
+def process_response(response):
+    if "<answer>" in response:
+        return response
+    else:
+        response = response[1:-1]
+        response = response.replace("object_grounding", "spatial_grounding")
+        response = response.replace("video_sampling", "temporal_grounding")
+        return "<tool_call>" + response + "</tool_call>"
+
 import base64
 from io import BytesIO
 
@@ -236,6 +246,8 @@ if __name__ == '__main__':
                         
                         groundtruth = process_groudntruth(turn, frames)
 
+                        procesed_response = process_response(turn["assistant_response"])
+
                         if len(frames_path) == 0:
                             continue
 
@@ -243,6 +255,7 @@ if __name__ == '__main__':
                             "data_source": data_source,
                             "images": frames_path,
                             "prompt": history,
+                            "response": procesed_response,
                             "raw_question": item["question"],
                             "reward_model": {
                                 "style": "rule",

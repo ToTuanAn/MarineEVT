@@ -29,7 +29,7 @@ import torch
 import torch.distributed
 from torch import nn, optim
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, MixedPrecision, ShardingStrategy, CPUOffload
-from transformers import AutoTokenizer, AutoModelForCausalLM, PreTrainedModel, AutoConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, PreTrainedModel, AutoConfig, AutoModelForVision2Seq
 from verl.utils.torch_functional import get_cosine_schedule_with_warmup
 from tensordict import TensorDict
 from torch.utils.data import DataLoader, DistributedSampler
@@ -105,22 +105,22 @@ class FSDPSFTTrainer(object):
     def _build_dataloader(self):
         config = self.config
         # build dataset
-        self.train_dataset = SFTDataset(parquet_files=config.data.train_files,
-                                        tokenizer=self.tokenizer,
-                                        prompt_key=config.data.prompt_key,
-                                        prompt_dict_keys=config.data.get('prompt_dict_keys', None),
-                                        response_key=config.data.response_key,
-                                        response_dict_keys=config.data.get('response_dict_keys', None),
-                                        max_length=config.data.max_length,
-                                        truncation=config.data.truncation)
-        self.val_dataset = SFTDataset(parquet_files=config.data.val_files,
-                                      tokenizer=self.tokenizer,
-                                      prompt_key=config.data.prompt_key,
-                                      prompt_dict_keys=config.data.get('prompt_dict_keys', None),
-                                      response_key=config.data.response_key,
-                                      response_dict_keys=config.data.get('response_dict_keys', None),
-                                      max_length=config.data.max_length,
-                                      truncation=config.data.truncation)
+        self.train_dataset = SFTDataset(parquet_files=self.config.data.train_files,
+                                         tokenizer=self.tokenizer,
+                                         prompt_key=self.config.data.prompt_key,
+                                         response_key=self.config.data.response_key,
+                                         max_prompt_length=self.config.data.max_length,
+                                         filter_prompts=True,
+                                         return_raw_chat=self.config.data.get('return_raw_chat', False),
+                                         truncation='error')
+        self.val_dataset = SFTDataset(parquet_files=self.config.data.val_files,
+                                         tokenizer=self.tokenizer,
+                                         prompt_key=self.config.data.prompt_key,
+                                         response_key=self.config.data.response_key,
+                                         max_prompt_length=self.config.data.max_length,
+                                         filter_prompts=True,
+                                         return_raw_chat=self.config.data.get('return_raw_chat', False),
+                                         truncation='error')
 
         # build dataloader
         rank = self.device_mesh.get_rank()
@@ -170,13 +170,14 @@ class FSDPSFTTrainer(object):
         init_context = get_init_weight_context_manager(use_meta_tensor=not config.tie_word_embeddings)
 
         with init_context():
-            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(local_model_path,
-                                                                               config=config,
-                                                                               torch_dtype=torch.float32,
-                                                                               attn_implementation='flash_attention_2',
-                                                                               trust_remote_code=trust_remote_code)
+            self.model = AutoModelForVision2Seq.from_pretrained(local_model_path,
+                                                                config=config,
+                                                                torch_dtype=torch.float32,
+                                                                attn_implementation='flash_attention_2',
+                                                                trust_remote_code=trust_remote_code)
             if self.config.model.get('lora_rank', 0) > 0:
                 self.model.enable_input_require_grads()
+                print("LORA activated")
                 # Convert config to regular Python types before creating PEFT model
                 lora_config = {
                     'task_type': TaskType.CAUSAL_LM,
@@ -257,7 +258,7 @@ class FSDPSFTTrainer(object):
         shift_labels = labels.contiguous()
         # Flatten the tokens
         loss_fct = nn.CrossEntropyLoss(reduction='none')
-        shift_logits = shift_logits.view(-1, self.model.config.vocab_size)
+        shift_logits = shift_logits.view(-1, self.model.config.text_config.vocab_size)
         shift_labels = shift_labels.view(-1)
         # Enable model parallelism
         shift_labels = shift_labels.to(shift_logits.device)

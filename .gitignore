@@ -1,3 +1,6 @@
 ray_temp/*
 model/*
 *.log
+output/*
+outputs/*
+evaluation/*

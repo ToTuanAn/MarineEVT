@@ -63,12 +63,16 @@ def evt_r1_loop(question, image_frames, model, tokenizer):
             match = re.search(r'<answer>\s*(.*?)\s*</answer>', output_text, re.DOTALL)
             
             if match:
-                inner_content = match.group(1).strip()
-                response = inner_content
-                print(f"Processed Answer {match.group(1)}")
+                # group(1) is already stripped of surrounding whitespace by the \s* in regex
+                response = match.group(1) 
+                print(f"Response: {output_text}") # Optional: if you still want to see the raw text
+                print(f"Processed Answer: {response}")
+                
+                break # Only break when we have successfully extracted the complete answer
             else:
-                print("No answer tag found")
-            break
+                # If you are in a loop waiting for the model to finish generating:
+                # print("Waiting for complete </answer> tag...")
+                pass 
 
         elif "<tool_call>" in output_text:
             match = re.search(r'<tool_call>\s*(.*?)\s*</tool_call>', output_text, re.DOTALL)
@@ -153,12 +157,3 @@ if __name__ == "__main__":
 
             with open(f"{RESULT_PATH}/{dimension_name}/{subdimension_name}/response.json", "w") as f:
                 json.dump(data, f, indent=4) 
-
-             
-
-    
-
-
-
-
-        
