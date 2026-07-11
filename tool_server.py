@@ -43,6 +43,7 @@ def emb_endpoint(request: EmbRequest):
 
     del answer_embeddings
     del completion_embeddings
+    # similarity_score = 0.9
     
     return {"result": {
         "similarity_score": similarity_score

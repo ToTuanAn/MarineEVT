@@ -20,6 +20,7 @@ import pandas as pd
 
 import torch
 import numpy as np
+from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from verl.utils.fs import copy_local_path_from_hdfs
@@ -63,8 +64,10 @@ class SFTDataset(Dataset):
     def __init__(self,
                  parquet_files: Union[str, List[str]],
                  tokenizer: PreTrainedTokenizer,
+                 image_processor,
                  prompt_key='prompt',
                  response_key='response',
+                 images_key='images',
                  max_prompt_length=1024,
                  filter_prompts=True,
                  cache_dir='~/.cache/verl/rlhf',
@@ -80,6 +83,8 @@ class SFTDataset(Dataset):
 
         self.prompt_key = prompt_key
         self.response_key = response_key
+        self.images_key = images_key
+        self.image_processor = image_processor
         self.max_length = max_prompt_length
         self.filter_prompts = filter_prompts
 
@@ -127,6 +132,23 @@ class SFTDataset(Dataset):
         tokenizer = self.tokenizer
 
         prompt = row_dict[self.prompt_key]
+        image_paths  = row_dict[self.images_key]
+
+        images = []
+        for path in image_paths:
+            img = Image.open(path).convert("RGB")
+            images.append(img)
+
+        # 3. Process the images using the Qwen-VL image processor
+        # return_tensors="pt" ensures it returns PyTorch tensors directly
+        image_inputs = self.image_processor(
+            images=images, 
+            return_tensors="pt"
+        )
+
+        # 4. Extract the specific tensors required by Qwen-VL
+        pixel_values = image_inputs["pixel_values"]
+        image_grid_thw = image_inputs["image_grid_thw"]
 
         # apply chat template
         prompt_chat = prompt
@@ -134,6 +156,15 @@ class SFTDataset(Dataset):
 
         # string
         prompt_chat_str = tokenizer.apply_chat_template(prompt_chat, add_generation_prompt=True, tokenize=False)
+        vision_tokens_ids = []
+        
+        for image_timestamp in range(len(image_paths)):
+            # Build vision sequence: <|vision_start|> + <|image_pad|> * N + <|vision_end|>
+            vision_seq = f"Timestamp {image_timestamp}: <|vision_start|>" + "<|image_pad|>" + "<|vision_end|>"
+            vision_tokens_ids.append(vision_seq)
+
+        start_vision_index = prompt_chat_str.find("<|im_start|>user") + len("<|im_start|>user")
+        prompt_chat_str = prompt_chat_str[:start_vision_index+1] + ''.join(vision_tokens_ids) + prompt_chat_str[start_vision_index:]
         response_chat_str = response + tokenizer.eos_token
 
         # tokenize
@@ -193,4 +224,6 @@ class SFTDataset(Dataset):
             "attention_mask": attention_mask,
             "position_ids": position_ids,
             "loss_mask": loss_mask,
+            "pixel_values": pixel_values,
+            "image_grid_thw": image_grid_thw
         }

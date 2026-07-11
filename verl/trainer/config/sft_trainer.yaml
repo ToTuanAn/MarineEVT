@@ -5,6 +5,7 @@ data:
   val_files: ~/data/gsm8k/test.parquet
   prompt_key: prompt
   response_key: response
+  image_key: images
   max_length: 1024
   truncation: error
   balance_dp_token: False

@@ -108,7 +108,10 @@ def parse_tool_blocks(raw_string: str, ordered: bool = True) -> dict:
     
     if match:
         call_str = match.group(1)
-        call_json = json.loads(call_str)
+        try:
+            call_json = json.loads(call_str)
+        except:
+            return None, None
 
         if "function" in call_json:
             if "name" in call_json["function"] and "arguments" in call_json["function"]:

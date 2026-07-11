@@ -67,6 +67,28 @@ def convert_to_regular_types(obj):
         return {k: convert_to_regular_types(v) for k, v in obj.items()}
     return obj
 
+def vlm_collate_fn(batch):
+    """
+    Custom collate function for Qwen-VL / VLMs.
+    Stacks text tensors (which are padded to max_length) and 
+    concatenates vision tensors (which have variable patch counts).
+    """
+    collated_batch = {}
+    
+    # 1. Stack text-related tensors 
+    # (They are already padded to self.max_length in __getitem__, so they have the same size)
+    for key in ["input_ids", "attention_mask", "position_ids", "loss_mask"]:
+        collated_batch[key] = torch.stack([item[key] for item in batch])
+        
+    # 2. Concatenate vision tensors 
+    # pixel_values: [num_patches, dim] -> [total_patches_in_batch, dim]
+    collated_batch["pixel_values"] = [item["pixel_values"] for item in batch]
+    
+    # image_grid_thw: [num_images, 3] -> [total_images_in_batch, 3]
+    collated_batch["image_grid_thw"] = [item["image_grid_thw"] for item in batch]
+    
+    return collated_batch
+
 
 class FSDPSFTTrainer(object):
 
@@ -76,7 +98,11 @@ class FSDPSFTTrainer(object):
         # build tokenizer first
         local_model_path = copy_local_path_from_hdfs(src=self.config.model.partial_pretrain, verbose=True)
         from verl.utils import hf_tokenizer
+        from transformers import AutoImageProcessor
+
         self.tokenizer = hf_tokenizer(local_model_path, trust_remote_code=self.config.model.trust_remote_code)
+        self.image_processor = AutoImageProcessor.from_pretrained(local_model_path)
+
         if self.config.data.chat_template is not None:
             raise ValueError('Apply Chat template from config is not supported yet.')
 
@@ -107,6 +133,7 @@ class FSDPSFTTrainer(object):
         # build dataset
         self.train_dataset = SFTDataset(parquet_files=self.config.data.train_files,
                                          tokenizer=self.tokenizer,
+                                         image_processor=self.image_processor,
                                          prompt_key=self.config.data.prompt_key,
                                          response_key=self.config.data.response_key,
                                          max_prompt_length=self.config.data.max_length,
@@ -115,6 +142,7 @@ class FSDPSFTTrainer(object):
                                          truncation='error')
         self.val_dataset = SFTDataset(parquet_files=self.config.data.val_files,
                                          tokenizer=self.tokenizer,
+                                         image_processor=self.image_processor,
                                          prompt_key=self.config.data.prompt_key,
                                          response_key=self.config.data.response_key,
                                          max_prompt_length=self.config.data.max_length,
@@ -134,6 +162,7 @@ class FSDPSFTTrainer(object):
                                            batch_size=config.data.train_batch_size,
                                            sampler=self.train_sampler,
                                            num_workers=8,
+                                           collate_fn=vlm_collate_fn,  # <--- Add this line
                                            pin_memory=True,
                                            drop_last=True)
 
@@ -146,6 +175,7 @@ class FSDPSFTTrainer(object):
                                          batch_size=config.data.micro_batch_size,
                                          sampler=self.val_sampler,
                                          num_workers=8,
+                                         collate_fn=vlm_collate_fn,  # <--- Add this line
                                          pin_memory=True,
                                          drop_last=True)
 
@@ -242,14 +272,28 @@ class FSDPSFTTrainer(object):
                                                             num_warmup_steps=num_warmup_steps,
                                                             num_training_steps=total_steps)
 
-    def _compute_loss(self, batch):
+    def _compute_loss(self, batch, vision_inputs):
         loss_mask = batch.pop('loss_mask')[:, :-1].reshape(-1).cuda()
         labels = batch['input_ids'][:, 1:].cuda()
+
+        print("Len input_ids: ", len(batch['input_ids']))
+        print("Len pixel_values: ", len(vision_inputs['pixel_values']))
+        print("Len image_grid_thw: ", len(vision_inputs['image_grid_thw']))
+        print("Type pixel_values: ", type(vision_inputs['pixel_values'][0]))
+        print("Shape pixel_values: ", vision_inputs['pixel_values'][0].size())
+
+        import torch.nn.functional as F
+
+        # max_vision_inputs_len = max(t.size(0) for t in vision_inputs["pixel_values"])
+        # padded_tensors = [F.pad(t, (0, max_vision_inputs_len - t.size(0)), value=0) for t in vision_inputs["pixel_values"]]
+        # final_vision_inputs_tensor = torch.stack(padded_tensors)
 
         with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
             output = self.fsdp_model(input_ids=batch['input_ids'],
                                      attention_mask=batch['attention_mask'],
                                      position_ids=batch['position_ids'],
+                                    #  pixel_values=final_vision_inputs_tensor,
+                                    #  image_grid_thw=vision_inputs["image_grid_thw"],   # (N, 3) tensor
                                      use_cache=False)  # prevent model thinks it it generating
 
         logits = output.logits
@@ -276,7 +320,7 @@ class FSDPSFTTrainer(object):
         loss = torch.sum(loss) / valid_token_this_rank * dp_size  # possible bugs here for dp
         return loss
 
-    def training_step(self, batch: TensorDict):
+    def training_step(self, batch: TensorDict, vision_inputs):
         self.fsdp_model.train()
 
         log_gpu_memory_usage('Before optimizer zero_grad', logger=logger)
@@ -289,7 +333,7 @@ class FSDPSFTTrainer(object):
         n_micro_batches = len(micro_batches)
         step_loss = 0
         for micro_batch in micro_batches:
-            loss = self._compute_loss(batch=micro_batch) / n_micro_batches
+            loss = self._compute_loss(batch=micro_batch, vision_inputs=vision_inputs) / n_micro_batches
             loss.backward()
             step_loss += loss.item()
 
@@ -374,8 +418,22 @@ class FSDPSFTTrainer(object):
         for epoch in range(self.config.trainer.total_epochs):
             self.train_sampler.set_epoch(epoch=epoch)
             for data in self.train_dataloader:
-                data = TensorDict(data, batch_size=self.config.data.train_batch_size).cuda()
-                metric = self.training_step(data)
+                print("Total keys: ", data.keys())
+                
+                text_inputs = {
+                    "input_ids": data["input_ids"],
+                    "attention_mask": data["attention_mask"],
+                    "position_ids": data["position_ids"],
+                    "loss_mask": data["loss_mask"]
+                }
+
+                vision_inputs = {
+                    "pixel_values": data["pixel_values"],
+                    "image_grid_thw": data["image_grid_thw"]
+                }
+
+                data = TensorDict(text_inputs, batch_size=self.config.data.train_batch_size).cuda()
+                metric = self.training_step(data, vision_inputs)
                 if rank == 0:
                     tracking.log(data=metric, step=global_step)
                 global_step += 1

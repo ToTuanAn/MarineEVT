@@ -474,19 +474,20 @@ class RayPPOTrainer(object):
         # Agent config preparation
         generation_manager = LLMGenerationManager(
             tokenizer=self.tokenizer,
+            reward_fn=self.reward_fn,
             actor_rollout_wg=self.actor_rollout_wg,
             config=gen_config,
-            is_validation = True,
+            is_validation=True
         )
 
         for batch_dict in self.val_dataloader:
             timing_raw = {}
-            batch: DataProto = DataProto.from_single_dict(batch_dict)
-            batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n_agent, interleave=True)
-            batch.non_tensor_batch['uid'] = batch.non_tensor_batch['index'].copy()
+            test_batch: DataProto = DataProto.from_single_dict(batch_dict)
+            test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n_agent, interleave=True)
+            test_batch.non_tensor_batch['uid'] = test_batch.non_tensor_batch['index'].copy()
 
             # pop those keys for generation
-            test_gen_batch = batch.pop(batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+            test_gen_batch = test_batch.pop(batch_keys=['input_ids', 'attention_mask', 'position_ids'],
                                 non_tensor_batch_keys=['uid', 'data_source', 'reward_model', 'images', 'question_format'])
             
             # test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n_agent, interleave=True)                

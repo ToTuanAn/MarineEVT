@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0,1
+export CUDA_VISIBLE_DEVICES=0,1,2
 export DATA_DIR='/project/marieninst/an/marineevt'
 
 export WG_BACKEND="ray"
@@ -10,15 +10,15 @@ WAND_PROJECT="EVT-R1"
 RAY_DASHBOARD_ADDRESS="http://127.0.0.1:8266" # your head node address
 N_NODES=1
 
-n_gpus_per_node=2
-train_batch_size=$[$n_gpus_per_node * 2]
+n_gpus_per_node=3
+train_batch_size=$[$n_gpus_per_node * 1]
 val_batch_size=$[$n_gpus_per_node * 1]
-actor_ppo_mini_batch_size=$[$n_gpus_per_node * 4]
+actor_ppo_mini_batch_size=$[$n_gpus_per_node * 2]
 actor_ppo_micro_batch_size=$[$n_gpus_per_node * 2]
 log_prob_micro_batch_size=$[$n_gpus_per_node * 2]
 
-export BASE_MODEL='Qwen/Qwen3-VL-2B-Instruct'
-export EXPERIMENT_NAME=evt-r1-qwen3vl-2b
+export BASE_MODEL='Qwen/Qwen3-VL-4B-Instruct'
+export EXPERIMENT_NAME=evt-r1-qwen3vl-4b
 
 ulimit -n 65535
 
@@ -32,9 +32,9 @@ ray job submit --address=$RAY_DASHBOARD_ADDRESS \
     data.val_data_num=null \
     data.train_batch_size=$train_batch_size \
     data.val_batch_size=$val_batch_size \
-    data.max_prompt_length=250000 \
+    data.max_prompt_length=30000 \
     data.max_response_length=10000 \
-    data.max_start_length=100000 \
+    data.max_start_length=10000 \
     data.max_obs_length=100000 \
     data.shuffle_train_dataloader=true \
     algorithm.adv_estimator=grpo \
