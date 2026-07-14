@@ -1,7 +1,7 @@
 from sentence_transformers import SentenceTransformer
 import torch
 
-text_emb_model = SentenceTransformer("Qwen/Qwen3-Embedding-4B")
+text_emb_model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
 
 def call_text_emb_model(completions):
     query_embeddings = text_emb_model.encode(completions)

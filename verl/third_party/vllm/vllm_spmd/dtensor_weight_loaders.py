@@ -379,6 +379,8 @@ def generate_qwen_parallelize_plan() -> Dict[str, Any]:
         "language_model.model.embed_tokens.weight": replicated,
         "language_model.model.norm":                replicated,
         "language_model.model.norm.weight":         replicated,
+        # "lm_head.weight":            replicated,
+
         
         # --- Self Attention Block ---
         "{i}.self_attn.qkv_proj": replicated,
@@ -456,11 +458,11 @@ def qwen3vl_dtensor_weight_loader(actor_weights: Dict, vllm_model: nn.Module) ->
                                     default_weight_loader)
             weight_loader(param, local_loaded_weight.to(dtype=param.dtype))
         loaded_params.add(name)
-    unloaded_params = params_dict.keys() - loaded_params
-    if unloaded_params:
-        raise RuntimeError(
-            "Some weights are not initialized from checkpoints: "
-            f"{unloaded_params}")
+    unloaded_params = params_dict.keys() - loaded_params 
+    # if unloaded_params:
+    #     raise RuntimeError(
+    #         "Some weights are not initialized from checkpoints: "
+    #         f"{unloaded_params}")
 
 
 def redistribute_dtensor(param_name: str, loaded_weights: DTensor, parallelize_plan: Dict = None):

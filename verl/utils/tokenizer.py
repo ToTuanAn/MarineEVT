@@ -14,7 +14,7 @@
 """Utils for tokenization."""
 import warnings
 
-__all__ = ['hf_tokenizer']
+__all__ = ['hf_tokenizer', 'hf_processor']
 
 
 def set_pad_token_id(tokenizer):
@@ -56,3 +56,72 @@ def hf_tokenizer(name_or_path, correct_pad_token=True, correct_gemma2=True, **kw
     if correct_pad_token:
         set_pad_token_id(tokenizer)
     return tokenizer
+
+
+def hf_processor(name_or_path, **kwargs):
+    """Create a huggingface processor to process multimodal data.
+
+    Args:
+        name_or_path (str): The name of the processor.
+
+    Returns:
+        Optional[transformers.ProcessorMixin]: The pretrained multimodal processor.
+        Returns ``None`` for text-only models (including AutoProcessor fallbacks to
+        tokenizer backends such as ``TokenizersBackend``).
+    """
+    from transformers import AutoConfig, AutoProcessor, PreTrainedTokenizerBase
+
+    try:
+        processor = AutoProcessor.from_pretrained(name_or_path, **kwargs)
+        # In newer transformers, AutoProcessor may legitimately fall back to a
+        # tokenizer backend (e.g. TokenizersBackend) for text-only models.
+        # Treat it as "no multimodal processor" and let callers use hf_tokenizer.
+        if isinstance(processor, PreTrainedTokenizerBase):
+            return None
+
+        config = AutoConfig.from_pretrained(name_or_path, **kwargs)
+
+        # Bind vlm model's get_rope_index method to processor.
+        processor.config = config
+        model_class = None
+        match processor.__class__.__name__:
+            case "Qwen2VLProcessor":
+                from transformers.models.qwen2_vl import Qwen2VLModel
+
+                model_class = Qwen2VLModel
+            case "Qwen2_5_VLProcessor":
+                from transformers.models.qwen2_5_vl import Qwen2_5_VLModel
+
+                model_class = Qwen2_5_VLModel
+            case "Qwen3VLProcessor":
+                from transformers.models.qwen3_vl import Qwen3VLModel
+
+                model_class = Qwen3VLModel
+            case "Glm4vProcessor":
+                from transformers.models.glm4v import Glm4vModel
+
+                model_class = Glm4vModel
+            case "MllamaProcessor":
+                pass  # MllamaProcessor and MllamaModel doesn't have get_rope_index property
+            case "Gemma4Processor":
+                # Gemma4 uses standard 1D RoPE -> no get_rope_index to bind. Disable its strict
+                # per-image-token check (which Qwen's processor lacks).
+                processor.validate_inputs = lambda *args, **kwargs: None
+            case _:
+                raise ValueError(f"Unsupported processor type: {processor.__class__.__name__}")
+
+        if model_class is not None:
+            processor.get_rope_index = types.MethodType(model_class.get_rope_index, processor)
+            if hasattr(model_class, "get_vision_position_ids"):
+                processor.get_vision_position_ids = types.MethodType(model_class.get_vision_position_ids, processor)
+    except Exception as e:
+        processor = None
+        # TODO(haibin.lin): try-catch should be removed after adding transformer version req to setup.py to avoid
+        # silent failure
+        warnings.warn(f"Failed to create processor: {e}. This may affect multimodal processing", stacklevel=1)
+    # Avoid load tokenizer, see:
+    # https://github.com/huggingface/transformers/blob/v4.49.0/src/transformers/models/auto/processing_auto.py#L344
+    if processor is not None and "Processor" not in processor.__class__.__name__:
+        processor = None
+
+    return processor

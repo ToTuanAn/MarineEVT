@@ -4,3 +4,10 @@ model/*
 output/*
 outputs/*
 evaluation/*
+
+*.sbatch
+merged_hf_model/*
+*.error
+output.txt
+
+verl_checkpoints/*

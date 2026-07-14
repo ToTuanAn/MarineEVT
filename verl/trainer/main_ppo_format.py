@@ -218,11 +218,14 @@ def compute_score_fn(think_str,
             if response_tool_name == "temporal_grounding":
                 print("Example type: ", type(ground_truth_response))
                 print("Example: ", ground_truth_response)
-                if calculate_correct_temporal_IoU(response=[(lambda m, s: int(m) * 60 + int(s))(*response_params["start_time"].split(':')),
-                                                            (lambda m, s: int(m) * 60 + int(s))(*response_params["end_time"].split(':'))],
-                                                  groundtruth=[json.loads(ground_truth_response)["start_time"], json.loads(ground_truth_response)["end_time"]]):
-                    return tool_output_score + tool_name_score
-                else:
+                try:
+                    if calculate_correct_temporal_IoU(response=[(lambda m, s: int(m) * 60 + int(s))(*response_params["start_time"].split(':')),
+                                                                (lambda m, s: int(m) * 60 + int(s))(*response_params["end_time"].split(':'))],
+                                                    groundtruth=[json.loads(ground_truth_response)["start_time"], json.loads(ground_truth_response)["end_time"]]):
+                        return tool_output_score + tool_name_score
+                    else:
+                        return tool_name_score
+                except:
                     return tool_name_score
             elif response_tool_name == "spatial_grounding":
                 result = None

@@ -15,4 +15,6 @@
 from . import tokenizer
 from .tokenizer import *
 
+from .transformers_compat import *
+
 __all__ = tokenizer.__all__

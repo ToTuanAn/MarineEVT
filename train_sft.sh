@@ -14,7 +14,7 @@ n_gpus_per_node=2
 train_batch_size=$[$n_gpus_per_node * 2]
 val_batch_size=$[$n_gpus_per_node * 1]
 
-export BASE_MODEL='Qwen/Qwen3-VL-2B-Instruct'
+export BASE_MODEL='Qwen/Qwen3-VL-8B-Instruct'
 export EXPERIMENT_NAME=evt-r1-qwen3vl-2b
 
 ulimit -n 65535

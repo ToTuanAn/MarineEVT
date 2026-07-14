@@ -17,6 +17,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 runtime_device="cuda"
 bpe_path = f"/home/tato/MarineEVT/evt_r1/tools/sam3/assets/bpe_simple_vocab_16e6.txt.gz"
 sam_model = build_sam3_image_model(bpe_path=bpe_path, checkpoint_path="/home/tato/MarineEVT/model/SAM-3/sam3.pt",  device=runtime_device)
+highest_processor = Sam3Processor(sam_model, confidence_threshold=0.02, device=runtime_device)
+all_processor = Sam3Processor(sam_model, confidence_threshold=0.1, device=runtime_device)
 
 def call_sam(json_content, image_paths):
     prompts = []
@@ -35,9 +37,9 @@ def call_sam(json_content, image_paths):
             ground_type = "highest"
 
     if ground_type == "highest":
-        sam_processor = Sam3Processor(sam_model, confidence_threshold=0.02, device=runtime_device)
+        sam_processor = highest_processor
     else:
-        sam_processor = Sam3Processor(sam_model, confidence_threshold=0.1, device=runtime_device)
+        sam_processor = all_processor
 
     bounding_box = {"boxes" : []}
 

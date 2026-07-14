@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0,1,2
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4
 export DATA_DIR='/project/marieninst/an/marineevt'
 
 export WG_BACKEND="ray"
@@ -10,15 +10,15 @@ WAND_PROJECT="EVT-R1"
 RAY_DASHBOARD_ADDRESS="http://127.0.0.1:8266" # your head node address
 N_NODES=1
 
-n_gpus_per_node=3
+n_gpus_per_node=5
 train_batch_size=$[$n_gpus_per_node * 1]
 val_batch_size=$[$n_gpus_per_node * 1]
 actor_ppo_mini_batch_size=$[$n_gpus_per_node * 2]
 actor_ppo_micro_batch_size=$[$n_gpus_per_node * 2]
 log_prob_micro_batch_size=$[$n_gpus_per_node * 2]
 
-export BASE_MODEL='Qwen/Qwen3-VL-4B-Instruct'
-export EXPERIMENT_NAME=evt-r1-qwen3vl-4b
+export BASE_MODEL='Qwen/Qwen3-VL-8B-Instruct'
+export EXPERIMENT_NAME=evt-r1-qwen3vl-8b
 
 ulimit -n 65535
 
@@ -32,7 +32,7 @@ ray job submit --address=$RAY_DASHBOARD_ADDRESS \
     data.val_data_num=null \
     data.train_batch_size=$train_batch_size \
     data.val_batch_size=$val_batch_size \
-    data.max_prompt_length=30000 \
+    data.max_prompt_length=20000 \
     data.max_response_length=10000 \
     data.max_start_length=10000 \
     data.max_obs_length=100000 \
@@ -53,7 +53,7 @@ ray job submit --address=$RAY_DASHBOARD_ADDRESS \
     actor_rollout_ref.rollout.log_prob_micro_batch_size=$log_prob_micro_batch_size \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=vllm \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.3 \
     +actor_rollout_ref.rollout.min_pixel_tokens=4 \
     +actor_rollout_ref.rollout.max_pixel_tokens=128 \
     +actor_rollout_ref.rollout.disable_log_stats=true \
@@ -75,6 +75,7 @@ ray job submit --address=$RAY_DASHBOARD_ADDRESS \
     trainer.nnodes=1 \
     trainer.save_freq=60 \
     trainer.test_freq=60 \
+    trainer.resume_from_path=null \
     trainer.project_name=$WAND_PROJECT \
     trainer.experiment_name=$EXPERIMENT_NAME \
     trainer.total_epochs=2 \

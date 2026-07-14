@@ -115,7 +115,7 @@ if __name__ == "__main__":
     MODEL_PATH = "Qwen/Qwen3-VL-2B-Instruct"
 
     model = AutoModelForVision2Seq.from_pretrained(
-        MODEL_PATH,
+        "/home/tato/MarineEVT/merged_hf_model",
         torch_dtype=torch.float16,  # or torch.bfloat16 depending on your hardware
         device_map="auto",
         trust_remote_code=True      # Highly recommended for Qwen models
